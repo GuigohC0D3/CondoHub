@@ -1,0 +1,35 @@
+import { Router } from 'express';
+import { authRouter } from '@/modules/auth/auth.routes';
+import { residentsRouter } from '@/modules/residents/residents.routes';
+import { apartmentsRouter, blocksRouter } from '@/modules/structure/structure.routes';
+import { commonAreasRouter } from '@/modules/reservations/common-areas.routes';
+import { reservationsRouter } from '@/modules/reservations/reservations.routes';
+import { ticketsRouter } from '@/modules/tickets/tickets.routes';
+import { noticesRouter } from '@/modules/notices/notices.routes';
+import { notificationsRouter } from '@/modules/notifications/notifications.routes';
+import { visitorsRouter } from '@/modules/visitors/visitors.routes';
+import { packagesRouter } from '@/modules/packages/packages.routes';
+import { financeRouter } from '@/modules/finance/finance.routes';
+import { dashboardRouter } from '@/modules/dashboard/dashboard.routes';
+import { adminRouter } from '@/modules/admin/admin.routes';
+import { billingRouter } from '@/modules/billing/billing.routes';
+import { uploadsRouter } from '@/modules/uploads/uploads.routes';
+
+export const apiRouter = Router();
+
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/residents', residentsRouter);
+apiRouter.use('/blocks', blocksRouter);
+apiRouter.use('/apartments', apartmentsRouter);
+apiRouter.use('/common-areas', commonAreasRouter);
+apiRouter.use('/reservations', reservationsRouter);
+apiRouter.use('/tickets', ticketsRouter);
+apiRouter.use('/notices', noticesRouter);
+apiRouter.use('/notifications', notificationsRouter);
+apiRouter.use('/visitors', visitorsRouter);
+apiRouter.use('/packages', packagesRouter);
+apiRouter.use('/finance', financeRouter);
+apiRouter.use('/dashboard', dashboardRouter);
+apiRouter.use('/admin', adminRouter);
+apiRouter.use('/billing', billingRouter);
+apiRouter.use('/uploads', uploadsRouter);
