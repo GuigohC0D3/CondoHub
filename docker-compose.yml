@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: condohub
       POSTGRES_DB: condohub
     ports:
-      - "5432:5432"
+      # Host 5544 (5432 costuma estar ocupado por Postgres local). Interno segue 5432.
+      - "5544:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
