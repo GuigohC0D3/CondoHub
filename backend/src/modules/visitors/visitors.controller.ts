@@ -20,8 +20,11 @@ export async function validateQr(req: Request, res: Response) {
   res.json({ visitor: await service.validateQr(req.params.qrCode) });
 }
 export async function checkIn(req: Request, res: Response) {
-  res.json({ visitor: await service.checkIn(req.params.id, user(req)) });
+  res.json({ visitor: await service.checkIn(req.params.id, user(req), req.body?.photo) });
 }
 export async function checkOut(req: Request, res: Response) {
   res.json({ visitor: await service.checkOut(req.params.id, user(req)) });
+}
+export async function deny(req: Request, res: Response) {
+  res.json({ visitor: await service.deny(req.params.id, user(req), req.body?.reason) });
 }

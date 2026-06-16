@@ -13,7 +13,7 @@ const include = {
 } satisfies Prisma.PackageInclude;
 
 /** Notifica os moradores (com login) do apartamento sobre a encomenda. */
-async function notifyApartment(apartmentId: string, packageId: string): Promise<number> {
+async function notifyApartment(apartmentId: string): Promise<number> {
   const residents = await prisma.resident.findMany({
     where: { apartmentId, status: 'APPROVED', userId: { not: null } },
     select: { userId: true },
@@ -28,7 +28,7 @@ async function notifyApartment(apartmentId: string, packageId: string): Promise<
       type: 'PACKAGE' as const,
       title: 'Encomenda recebida',
       body: 'Você tem uma encomenda na portaria',
-      linkUrl: `/packages/${packageId}`,
+      linkUrl: '/encomendas',
     })) as Prisma.NotificationCreateManyInput[],
   });
   return userIds.length;
@@ -45,7 +45,7 @@ export async function create(input: CreatePackageInput, user: AuthUser) {
 
   let notified = 0;
   try {
-    notified = await notifyApartment(input.apartmentId, pkg.id);
+    notified = await notifyApartment(input.apartmentId);
     if (notified > 0) {
       await prisma.package.update({ where: { id: pkg.id }, data: { status: 'NOTIFIED' } });
       pkg.status = 'NOTIFIED';
