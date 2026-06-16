@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { AxiosError } from 'axios';
 import { useAuthStore } from '@/stores/auth';
+import { homeFor } from '@/router/nav';
 import { Button } from '@/components/ui/button';
 
 const auth = useAuthStore();
@@ -20,7 +21,7 @@ async function submit() {
   loading.value = true;
   try {
     await auth.login(email.value, password.value, slug.value || undefined);
-    const redirect = (route.query.redirect as string) || '/';
+    const redirect = (route.query.redirect as string) || homeFor(auth.role);
     router.push(redirect);
   } catch (e) {
     const ax = e as AxiosError<{ error?: { message?: string } }>;

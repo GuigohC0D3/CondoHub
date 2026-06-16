@@ -77,5 +77,10 @@ export const useAuthStore = defineStore('auth', () => {
     ready.value = true;
   }
 
-  return { user, accessToken, refreshToken, ready, isAuthenticated, role, login, logout, restore };
+  /** Define a sessão a partir de tokens externos (ex.: aceite de convite). */
+  function setSession(access: string, refresh: string, u: AuthUser) {
+    apply(access, refresh, u);
+  }
+
+  return { user, accessToken, refreshToken, ready, isAuthenticated, role, login, logout, restore, setSession };
 });
