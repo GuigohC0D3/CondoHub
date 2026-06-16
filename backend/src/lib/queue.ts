@@ -4,6 +4,7 @@ import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 import { runWithTenant } from '@/lib/tenant-context';
+import { sendEmail } from '@/lib/email';
 
 /**
  * Fila de jobs assíncronos (BullMQ sobre Redis). Desacopla trabalho pesado do
@@ -14,7 +15,7 @@ import { runWithTenant } from '@/lib/tenant-context';
 
 export type JobPayload = {
   'notice.fanout': { condominiumId: string; noticeId: string; title: string };
-  'email.send': { to: string; subject: string; body: string };
+  'email.send': { to: string; subject: string; html: string; text?: string };
 };
 
 type JobName = keyof JobPayload;
@@ -43,16 +44,15 @@ const processors: { [K in JobName]: (data: JobPayload[K]) => Promise<void> } = {
           type: 'NOTICE' as const,
           title: 'Novo aviso',
           body: title,
-          linkUrl: `/notices/${noticeId}`,
+          linkUrl: '/avisos',
         })) as Prisma.NotificationCreateManyInput[],
       });
       logger.info({ noticeId, count: recipients.length }, 'notice.fanout concluído');
     });
   },
 
-  async 'email.send'({ to, subject }) {
-    // TODO: integrar provedor de e-mail (SES/Resend). Stub por enquanto.
-    logger.info({ to, subject }, 'email.send (stub)');
+  async 'email.send'(data) {
+    await sendEmail(data);
   },
 };
 

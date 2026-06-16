@@ -17,6 +17,7 @@
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.454.0",
     "pinia": "^2.2.6",
+    "qr-scanner": "^1.4.2",
     "reka-ui": "^2.9.10",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",

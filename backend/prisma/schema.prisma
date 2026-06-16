@@ -63,6 +63,7 @@ model Condominium {
   packages       Package[]
   notifications  Notification[]
   auditLogs      AuditLog[]
+  invitations    Invitation[]
 
   @@index([slug])
   @@index([isActive])
@@ -245,6 +246,7 @@ model Resident {
   visitors      Visitor[]
   packages      Package[]
   history       ResidentHistory[]
+  invitation    Invitation?
 
   @@unique([condominiumId, cpf])
   @@index([condominiumId, status])
@@ -533,6 +535,7 @@ model Visitor {
   qrCode        String        @unique // token do QR de acesso
   status        VisitorStatus @default(EXPECTED)
   expectedAt    DateTime?
+  expiresAt     DateTime?     // validade do QR (após isso, não pode mais dar entrada)
   checkedInAt   DateTime?
   checkedOutAt  DateTime?
   registeredBy  String?       // userId do porteiro no check-in
@@ -617,4 +620,36 @@ model AuditLog {
   @@index([condominiumId, createdAt])
   @@index([userId])
   @@index([entity, entityId])
+}
+
+// ============================================================
+// CONVITES (onboarding de morador/porteiro)
+// ============================================================
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+// Convite por token: síndico convida → convidado define senha e cria o login.
+model Invitation {
+  id            String           @id @default(uuid())
+  condominiumId String
+  condominium   Condominium      @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  email         String
+  name          String
+  role          UserRole // MORADOR ou PORTEIRO (validado na aplicação)
+  // Vínculo opcional com um cadastro de morador (link login → unidade).
+  residentId    String?          @unique
+  resident      Resident?        @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  token         String           @unique
+  status        InvitationStatus @default(PENDING)
+  invitedById   String?
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([condominiumId, status])
+  @@index([token])
 }

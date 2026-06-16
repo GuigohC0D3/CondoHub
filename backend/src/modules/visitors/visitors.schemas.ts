@@ -15,7 +15,14 @@ export const listVisitorsQuerySchema = z.object({
 });
 
 export const idParamSchema = z.object({ id: z.string().uuid() });
-export const qrParamSchema = z.object({ qrCode: z.string().min(10).max(100) });
+export const qrParamSchema = z.object({ qrCode: z.string().min(10).max(120) });
+
+// Foto opcional no check-in: data URL de imagem capturada na portaria.
+export const checkInSchema = z.object({
+  photo: z.string().regex(/^data:image\/(png|jpe?g|webp);base64,/).max(900_000).optional(),
+});
+
+export const denySchema = z.object({ reason: z.string().max(300).optional() });
 
 export type CreateVisitorInput = z.infer<typeof createVisitorSchema>;
 export type ListVisitorsQuery = z.infer<typeof listVisitorsQuerySchema>;

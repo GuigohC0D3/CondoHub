@@ -14,10 +14,12 @@ import { dashboardRouter } from '@/modules/dashboard/dashboard.routes';
 import { adminRouter } from '@/modules/admin/admin.routes';
 import { billingRouter } from '@/modules/billing/billing.routes';
 import { uploadsRouter } from '@/modules/uploads/uploads.routes';
+import { invitationsRouter } from '@/modules/invitations/invitations.routes';
 
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/invitations', invitationsRouter);
 apiRouter.use('/residents', residentsRouter);
 apiRouter.use('/blocks', blocksRouter);
 apiRouter.use('/apartments', apartmentsRouter);

@@ -5,7 +5,9 @@ import { validate } from '@/middlewares/validate';
 import { asyncHandler } from '@/utils/async-handler';
 import * as controller from './visitors.controller';
 import {
+  checkInSchema,
   createVisitorSchema,
+  denySchema,
   idParamSchema,
   listVisitorsQuerySchema,
   qrParamSchema,
@@ -46,11 +48,11 @@ visitorsRouter.get(
   asyncHandler(controller.getOne),
 );
 
-// Entrada/saída: porteiro (ou síndico).
+// Entrada (com foto opcional) / saída / negar: porteiro (ou síndico).
 visitorsRouter.post(
   '/:id/checkin',
   requireRole('SINDICO', 'PORTEIRO'),
-  validate({ params: idParamSchema }),
+  validate({ params: idParamSchema, body: checkInSchema }),
   asyncHandler(controller.checkIn),
 );
 visitorsRouter.post(
@@ -58,4 +60,10 @@ visitorsRouter.post(
   requireRole('SINDICO', 'PORTEIRO'),
   validate({ params: idParamSchema }),
   asyncHandler(controller.checkOut),
+);
+visitorsRouter.post(
+  '/:id/deny',
+  requireRole('SINDICO', 'PORTEIRO'),
+  validate({ params: idParamSchema, body: denySchema }),
+  asyncHandler(controller.deny),
 );

@@ -66,3 +66,19 @@ export async function presignUpload(params: {
 
   return { uploadUrl, publicUrl: publicUrlFor(key), key, expiresIn };
 }
+
+/** Upload direto de um buffer (server-side). Retorna a URL pública. */
+export async function putObject(params: {
+  condominiumId: string;
+  scope: string;
+  fileName: string;
+  contentType: string;
+  body: Buffer;
+}): Promise<string> {
+  if (!client) throw new Error('Storage S3 não configurado');
+  const key = buildObjectKey(params.condominiumId, params.scope, params.fileName);
+  await client.send(
+    new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: params.body, ContentType: params.contentType }),
+  );
+  return publicUrlFor(key);
+}
