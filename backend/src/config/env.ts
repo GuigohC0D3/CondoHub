@@ -33,6 +33,12 @@ const schema = z.object({
 
   // Filas
   QUEUE_ENABLED: z.coerce.boolean().default(true),
+
+  // E-mail (Resend). Sem RESEND_API_KEY → modo stub (apenas loga).
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('CondoHub <onboarding@resend.dev>'),
+  // URL pública do frontend (para montar links em e-mails, ex. convite).
+  WEB_URL: z.string().url().default('http://localhost:5173'),
 });
 
 const parsed = schema.safeParse(process.env);
