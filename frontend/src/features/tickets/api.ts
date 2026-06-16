@@ -16,7 +16,11 @@ export interface Ticket {
   status: TicketStatus;
   createdAt: string;
   resolvedAt: string | null;
-  resident: { fullName: string };
+  resident: {
+    fullName: string;
+    phone?: string | null;
+    apartment?: { number: string; block: { name: string } | null } | null;
+  };
   assignee: { id: string; name: string } | null;
   comments?: { id: string; body: string; createdAt: string; author: { name: string; role: string } }[];
   attachments?: { id: string; fileName: string }[];

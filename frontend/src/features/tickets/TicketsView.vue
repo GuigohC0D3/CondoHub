@@ -57,6 +57,14 @@ async function changeStatus(status: string) {
   try { await update.mutateAsync({ id: selectedId.value, data: { status } }); toast.success('Status atualizado'); }
   catch (e) { toast.error(apiError(e)); }
 }
+async function assignToMe() {
+  if (!selectedId.value || !auth.user) return;
+  try { await update.mutateAsync({ id: selectedId.value, data: { assigneeId: auth.user.id } }); toast.success('Chamado atribuído a você'); }
+  catch (e) { toast.error(apiError(e)); }
+}
+const fmt = (s: string | null | undefined) => (s ? new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+const unitOf = (t: Ticket) => (t.resident.apartment ? `${t.resident.apartment.block ? t.resident.apartment.block.name + ' · ' : ''}${t.resident.apartment.number}` : '—');
+const ROLE_LABEL: Record<string, string> = { SINDICO: 'Síndico', PORTEIRO: 'Porteiro', MORADOR: 'Morador', SUPER_ADMIN: 'Admin' };
 
 // Criar (morador)
 const showCreate = ref(false);
@@ -96,21 +104,53 @@ const statusOptions = Object.entries(STATUS).map(([value, s]) => ({ value, label
     <!-- Detalhe -->
     <Modal v-model:open="showDetail" :title="ticket?.title">
       <div v-if="ticket" class="space-y-4">
-        <p class="whitespace-pre-line text-sm text-muted-foreground">{{ ticket.description }}</p>
         <div class="flex flex-wrap gap-2">
+          <Badge variant="outline">{{ CATEGORY[ticket.category] }}</Badge>
           <Badge :variant="PRIORITY[ticket.priority].v">{{ PRIORITY[ticket.priority].t }}</Badge>
           <Badge :variant="STATUS[ticket.status].v">{{ STATUS[ticket.status].t }}</Badge>
         </div>
-        <div v-if="isSindico">
-          <Label>Alterar status</Label>
-          <Select :model-value="ticket.status" :options="statusOptions" @update:model-value="(v) => v && changeStatus(v)" />
+
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border p-3 text-sm">
+          <div><span class="text-muted-foreground">Aberto por</span><div class="font-medium">{{ ticket.resident.fullName }}</div></div>
+          <div><span class="text-muted-foreground">Unidade</span><div class="font-medium">{{ unitOf(ticket) }}</div></div>
+          <div v-if="ticket.resident.phone"><span class="text-muted-foreground">Telefone</span><div class="font-medium">{{ ticket.resident.phone }}</div></div>
+          <div><span class="text-muted-foreground">Aberto em</span><div class="font-medium">{{ fmt(ticket.createdAt) }}</div></div>
+          <div><span class="text-muted-foreground">Responsável</span><div class="font-medium">{{ ticket.assignee?.name ?? 'Não atribuído' }}</div></div>
+          <div v-if="ticket.resolvedAt"><span class="text-muted-foreground">Resolvido em</span><div class="font-medium">{{ fmt(ticket.resolvedAt) }}</div></div>
         </div>
+
         <div>
-          <h3 class="mb-2 text-sm font-medium">Comentários</h3>
-          <div class="space-y-2">
+          <h3 class="mb-1 text-sm font-medium">Descrição</h3>
+          <p class="whitespace-pre-line rounded-md bg-muted/40 p-3 text-sm">{{ ticket.description }}</p>
+        </div>
+
+        <div v-if="ticket.attachments?.length">
+          <h3 class="mb-1 text-sm font-medium">Anexos</h3>
+          <ul class="space-y-1 text-sm">
+            <li v-for="a in ticket.attachments" :key="a.id" class="text-muted-foreground">📎 {{ a.fileName }}</li>
+          </ul>
+        </div>
+
+        <div v-if="isSindico" class="grid grid-cols-2 gap-3 rounded-md border p-3">
+          <div>
+            <Label>Alterar status</Label>
+            <Select :model-value="ticket.status" :options="statusOptions" @update:model-value="(v) => v && changeStatus(v)" />
+          </div>
+          <div class="flex items-end">
+            <Button v-if="ticket.assignee?.id !== auth.user?.id" variant="outline" class="w-full" @click="assignToMe">Assumir chamado</Button>
+            <span v-else class="text-sm text-muted-foreground">Você é o responsável.</span>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="mb-2 text-sm font-medium">Comentários ({{ ticket.comments?.length ?? 0 }})</h3>
+          <div class="max-h-56 space-y-2 overflow-y-auto">
             <div v-for="c in ticket.comments" :key="c.id" class="rounded-md bg-muted/40 p-2 text-sm">
-              <div class="text-xs text-muted-foreground">{{ c.author.name }}</div>
-              <div>{{ c.body }}</div>
+              <div class="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{{ c.author.name }} <span class="opacity-70">· {{ ROLE_LABEL[c.author.role] }}</span></span>
+                <span>{{ fmt(c.createdAt) }}</span>
+              </div>
+              <div class="mt-0.5">{{ c.body }}</div>
             </div>
             <p v-if="!ticket.comments?.length" class="text-sm text-muted-foreground">Sem comentários.</p>
           </div>

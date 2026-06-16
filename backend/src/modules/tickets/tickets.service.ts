@@ -21,7 +21,14 @@ const listInclude = {
 } satisfies Prisma.TicketInclude;
 
 const detailInclude = {
-  resident: { select: { id: true, fullName: true, apartmentId: true } },
+  resident: {
+    select: {
+      id: true,
+      fullName: true,
+      phone: true,
+      apartment: { select: { number: true, block: { select: { name: true } } } },
+    },
+  },
   assignee: { select: { id: true, name: true, role: true } },
   comments: {
     orderBy: { createdAt: 'asc' },
