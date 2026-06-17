@@ -1,7 +1,7 @@
 import type { Component } from 'vue';
 import {
   LayoutDashboard, Users, Building2, Megaphone, CalendarCheck, Wrench,
-  Wallet, DoorOpen, Package, UserPlus, ShieldCheck, Mail,
+  Wallet, DoorOpen, Package, UserPlus, ShieldCheck, Mail, Lightbulb,
 } from 'lucide-vue-next';
 import type { Role } from '@/types';
 
@@ -24,6 +24,7 @@ export const NAV: NavItem[] = [
   { to: '/avisos', label: 'Avisos', icon: Megaphone, roles: ['SINDICO', 'MORADOR', 'PORTEIRO'] },
   { to: '/reservas', label: 'Reservas', icon: CalendarCheck, roles: ['SINDICO', 'MORADOR'] },
   { to: '/chamados', label: 'Chamados', icon: Wrench, roles: ['SINDICO', 'MORADOR'] },
+  { to: '/sugestoes', label: 'Sugestões', icon: Lightbulb, roles: ['SINDICO', 'MORADOR'] },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet, roles: ['SINDICO'] },
   { to: '/portaria', label: 'Portaria', icon: DoorOpen, roles: ['SINDICO', 'PORTEIRO'] },
   { to: '/visitantes', label: 'Visitantes', icon: UserPlus, roles: ['MORADOR'] },

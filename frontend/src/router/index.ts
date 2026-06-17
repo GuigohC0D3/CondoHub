@@ -12,6 +12,7 @@ const appChildren: RouteRecordRaw[] = [
   { path: 'avisos', name: 'notices', component: () => import('@/features/notices/NoticesListView.vue'), meta: { roles: ['SINDICO', 'MORADOR', 'PORTEIRO'] as Role[] } },
   { path: 'reservas', name: 'reservations', component: () => import('@/features/reservations/ReservationsView.vue'), meta: { roles: ['SINDICO', 'MORADOR'] as Role[] } },
   { path: 'chamados', name: 'tickets', component: () => import('@/features/tickets/TicketsView.vue'), meta: { roles: ['SINDICO', 'MORADOR'] as Role[] } },
+  { path: 'sugestoes', name: 'suggestions', component: () => import('@/features/suggestions/SuggestionsView.vue'), meta: { roles: ['SINDICO', 'MORADOR'] as Role[] } },
   { path: 'financeiro', name: 'finance', component: () => import('@/features/finance/FinanceView.vue'), meta: { roles: ['SINDICO'] as Role[] } },
   { path: 'portaria', name: 'gate', component: () => import('@/features/portaria/GateView.vue'), meta: { roles: ['SINDICO', 'PORTEIRO'] as Role[] } },
   { path: 'visitantes', name: 'visitors', component: () => import('@/features/visitors/VisitorsView.vue'), meta: { roles: ['MORADOR'] as Role[] } },

@@ -67,6 +67,7 @@ model Condominium {
   charges        Charge[]
   chargeBatches  ChargeBatch[]
   assemblies     Assembly[]
+  suggestions    Suggestion[]
 
   @@index([slug])
   @@index([isActive])
@@ -257,6 +258,8 @@ model Resident {
   charges       Charge[]
   assemblyVotes       AssemblyVote[]
   assemblyAttendances AssemblyAttendance[]
+  suggestions         Suggestion[]
+  suggestionVotes     SuggestionVote[]
 
   @@unique([condominiumId, cpf])
   @@index([condominiumId, status])
@@ -900,4 +903,61 @@ model Invitation {
 
   @@index([condominiumId, status])
   @@index([token])
+  }
+
+// ============================================================
+// SUGESTÕES DE MELHORIA (mural de ideias com votação)
+// ============================================================
+
+enum SuggestionCategory {
+  COMMON_AREAS    // áreas comuns / lazer
+  SECURITY        // segurança
+  SUSTAINABILITY  // sustentabilidade
+  INFRASTRUCTURE  // infraestrutura / obras
+  FINANCE         // financeiro
+  OTHER
+}
+
+enum SuggestionStatus {
+  OPEN          // aberta para votação
+  UNDER_REVIEW  // em análise pela administração
+  PLANNED       // aprovada / planejada
+  DONE          // concluída
+  REJECTED      // recusada
+}
+
+model Suggestion {
+  id              String             @id @default(uuid())
+  condominiumId   String
+  condominium     Condominium        @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+  residentId      String             // autor
+  resident        Resident           @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String             @db.Text
+  category        SuggestionCategory @default(OTHER)
+  status          SuggestionStatus   @default(OPEN)
+
+  // Resposta oficial da administração ao mudar o status.
+  responseMessage String?
+  respondedAt     DateTime?
+
+  votes           SuggestionVote[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([condominiumId, status])
+}
+
+// Apoio do morador a uma sugestão (1 voto por morador).
+model SuggestionVote {
+  id           String     @id @default(uuid())
+  suggestionId String
+  suggestion   Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  residentId   String
+  resident     Resident   @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([suggestionId, residentId])
+  @@index([suggestionId])
 }

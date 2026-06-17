@@ -15,6 +15,7 @@ import { adminRouter } from '@/modules/admin/admin.routes';
 import { billingRouter } from '@/modules/billing/billing.routes';
 import { chargesRouter } from '@/modules/charges/charges.routes';
 import { assembliesRouter } from '@/modules/assemblies/assemblies.routes';
+import { suggestionsRouter } from '@/modules/suggestions/suggestions.routes';
 import { uploadsRouter } from '@/modules/uploads/uploads.routes';
 import { invitationsRouter } from '@/modules/invitations/invitations.routes';
 
@@ -38,4 +39,5 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/billing', billingRouter);
 apiRouter.use('/charges', chargesRouter);
 apiRouter.use('/assemblies', assembliesRouter);
+apiRouter.use('/suggestions', suggestionsRouter);
 apiRouter.use('/uploads', uploadsRouter);
