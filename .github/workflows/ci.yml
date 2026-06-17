@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (typecheck + tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: condohub
+          POSTGRES_PASSWORD: condohub
+          POSTGRES_DB: condohub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U condohub"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Banco de teste (dedicado) usado pela suíte de integração.
+      TEST_DATABASE_URL: postgresql://condohub:condohub@localhost:5432/condohub_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests (multi-tenant, auth, charges, voting)
+        run: npm run test:integration
+
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Typecheck + build
+        run: npm run build
