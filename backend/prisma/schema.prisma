@@ -66,6 +66,7 @@ model Condominium {
   invitations    Invitation[]
   charges        Charge[]
   chargeBatches  ChargeBatch[]
+  assemblies     Assembly[]
 
   @@index([slug])
   @@index([isActive])
@@ -200,11 +201,14 @@ model Apartment {
   block         Block?      @relation(fields: [blockId], references: [id], onDelete: SetNull)
   number        String      // "101", "1502"
   floor         Int?
+  idealFraction Decimal?    @db.Decimal(9, 6) // fração ideal (peso de voto em assembleia)
   createdAt     DateTime    @default(now())
 
   residents     Resident[]
   packages      Package[]
   charges       Charge[]
+  assemblyVotes       AssemblyVote[]
+  assemblyAttendances AssemblyAttendance[]
 
   @@unique([condominiumId, blockId, number])
   @@index([condominiumId])
@@ -251,6 +255,8 @@ model Resident {
   history       ResidentHistory[]
   invitation    Invitation?
   charges       Charge[]
+  assemblyVotes       AssemblyVote[]
+  assemblyAttendances AssemblyAttendance[]
 
   @@unique([condominiumId, cpf])
   @@index([condominiumId, status])
@@ -532,6 +538,152 @@ model WebhookEvent {
   processedAt DateTime @default(now())
 
   @@unique([provider, eventId])
+}
+
+// ============================================================
+// ASSEMBLEIAS / VOTAÇÃO ONLINE (Lei 14.309/2022)
+// ============================================================
+
+enum AssemblyType {
+  ORDINARIA    // AGO
+  EXTRAORDINARIA // AGE
+}
+
+enum AssemblyMode {
+  PRESENCIAL
+  VIRTUAL
+  HIBRIDA
+}
+
+enum AssemblyStatus {
+  DRAFT       // rascunho do edital
+  SCHEDULED   // convocada/publicada
+  OPEN        // em andamento
+  CLOSED      // encerrada
+  CANCELED
+}
+
+enum AssemblyItemStatus {
+  PENDING
+  OPEN        // votação aberta
+  CLOSED      // apurada
+}
+
+// Regra de aprovação do item (quórum deliberativo).
+enum QuorumRule {
+  SIMPLE_MAJORITY   // maioria dos votos presentes (exclui abstenções)
+  ABSOLUTE_MAJORITY // > 50% da fração ideal total do condomínio
+  TWO_THIRDS        // >= 2/3 da fração ideal total
+  UNANIMITY         // 100% da fração ideal total
+}
+
+enum VoteChoice {
+  YES
+  NO
+  ABSTAIN
+  OPTION // voto em opção específica (item de múltipla escolha)
+}
+
+model Assembly {
+  id            String         @id @default(uuid())
+  condominiumId String
+  condominium   Condominium    @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
+
+  title         String
+  // Edital/convocação (texto rico em markdown/plain).
+  notice        String         @db.Text
+  type          AssemblyType   @default(ORDINARIA)
+  mode          AssemblyMode   @default(VIRTUAL)
+  status        AssemblyStatus @default(DRAFT)
+
+  scheduledFor  DateTime       // data/hora oficial da assembleia
+  // Quórum de instalação (fração ideal mínima presente). 1ª e 2ª convocação.
+  quorumFirst   Decimal        @default(0.5) @db.Decimal(4, 3)
+  quorumSecond  Decimal?       @db.Decimal(4, 3) // null = qualquer número (2ª chamada)
+  meetingUrl    String?        // link da videochamada (modo virtual/híbrido)
+
+  openedAt      DateTime?
+  closedAt      DateTime?
+  minutesUrl    String?        // ata gerada (PDF no storage)
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  items         AssemblyItem[]
+  attendances   AssemblyAttendance[]
+
+  @@index([condominiumId, status, scheduledFor])
+}
+
+model AssemblyItem {
+  id          String             @id @default(uuid())
+  assemblyId  String
+  assembly    Assembly           @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+
+  order       Int                @default(0)
+  title       String
+  description String?            @db.Text
+  quorumRule  QuorumRule         @default(SIMPLE_MAJORITY)
+  status      AssemblyItemStatus @default(PENDING)
+
+  openedAt    DateTime?
+  closedAt    DateTime?
+  // Resultado apurado no fechamento (snapshot).
+  approved    Boolean?
+  resultJson  Json?
+
+  options     AssemblyOption[]
+  votes       AssemblyVote[]
+
+  @@index([assemblyId, order])
+}
+
+// Opções de itens de múltipla escolha (ex.: eleição de síndico).
+model AssemblyOption {
+  id      String         @id @default(uuid())
+  itemId  String
+  item    AssemblyItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  label   String
+  order   Int            @default(0)
+  votes   AssemblyVote[]
+
+  @@index([itemId])
+}
+
+model AssemblyVote {
+  id          String       @id @default(uuid())
+  itemId      String
+  item        AssemblyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  apartmentId String       // voto é por unidade
+  apartment   Apartment    @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  residentId  String?      // quem registrou o voto
+  resident    Resident?    @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  optionId    String?
+  option      AssemblyOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  choice      VoteChoice
+  weight      Decimal      @db.Decimal(9, 6) // fração ideal no momento do voto
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([itemId, apartmentId]) // uma unidade, um voto por item
+  @@index([itemId])
+}
+
+// Presença/check-in — base do cálculo de quórum de instalação.
+model AssemblyAttendance {
+  id          String     @id @default(uuid())
+  assemblyId  String
+  assembly    Assembly   @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  apartmentId String
+  apartment   Apartment  @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  residentId  String?
+  resident    Resident?  @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  weight      Decimal    @db.Decimal(9, 6)
+  checkedInAt DateTime   @default(now())
+
+  @@unique([assemblyId, apartmentId])
+  @@index([assemblyId])
 }
 
 // ============================================================
