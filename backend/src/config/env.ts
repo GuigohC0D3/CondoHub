@@ -20,12 +20,12 @@ const schema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().default(5),
 
   // Storage S3 (ou compatível: R2, MinIO). Opcional em dev.
-  S3_ENDPOINT: z.string().url().optional(),
+  S3_ENDPOINT: z.string().url().optional().or(z.literal('')),
   S3_REGION: z.string().default('us-east-1'),
   S3_BUCKET: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_PUBLIC_URL: z.string().url().optional(), // base pública/CDN dos objetos
+  S3_PUBLIC_URL: z.string().url().optional().or(z.literal('')), // base pública/CDN dos objetos
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
 
   // Billing / gateway (Asaas, Pagar.me...). Opcional até integrar.
