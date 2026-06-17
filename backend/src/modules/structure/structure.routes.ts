@@ -22,7 +22,7 @@ blocksRouter.get('/', requireRole('SINDICO', 'MORADOR', 'PORTEIRO'), asyncHandle
   res.json({ blocks: await service.listBlocks() });
 }));
 blocksRouter.post('/', requireRole('SINDICO'), validate({ body: createBlockSchema }), asyncHandler(async (req, res) => {
-  res.status(201).json({ block: await service.createBlock(req.body.name) });
+  res.status(201).json({ block: await service.createBlock(req.body) });
 }));
 blocksRouter.patch('/:id', requireRole('SINDICO'), validate({ params: idParamSchema, body: updateBlockSchema }), asyncHandler(async (req, res) => {
   res.json({ block: await service.updateBlock(req.params.id, req.body.name) });

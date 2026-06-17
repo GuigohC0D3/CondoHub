@@ -24,11 +24,21 @@ export const useApartments = () =>
     queryFn: async () => (await api.get<Paginated<Apartment>>('/apartments', { params: { limit: 200 } })).data,
   });
 
+export interface CreateBlockBody {
+  name: string;
+  apartmentCount?: number;
+  unitsPerFloor?: number;
+  startFloor?: number;
+}
+
 export const useCreateBlock = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string) => (await api.post('/blocks', { name })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['blocks'] }),
+    mutationFn: async (body: CreateBlockBody) => (await api.post('/blocks', body)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['blocks'] });
+      qc.invalidateQueries({ queryKey: ['apartments'] });
+    },
   });
 };
 

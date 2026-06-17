@@ -2,14 +2,32 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/utils/errors';
 import { paginate, toSkipTake } from '@/utils/pagination';
-import type { CreateApartmentInput, ListApartmentsQuery, UpdateApartmentInput } from './structure.schemas';
+import type { CreateApartmentInput, CreateBlockInput, ListApartmentsQuery, UpdateApartmentInput } from './structure.schemas';
 
 // ---- Blocos ----
 export async function listBlocks() {
   return prisma.block.findMany({ include: { _count: { select: { apartments: true } } }, orderBy: { name: 'asc' } });
 }
-export async function createBlock(name: string) {
-  return prisma.block.create({ data: { name } as Prisma.BlockUncheckedCreateInput });
+
+/**
+ * Cria o bloco e, opcionalmente, gera N apartamentos numerados por andar.
+ * Numeração: `${andar}${unidade:2}` (ex.: 4 unidades/andar → 101,102,103,104,201...).
+ */
+export async function createBlock(input: CreateBlockInput) {
+  const { name, apartmentCount = 0, unitsPerFloor = 4, startFloor = 1 } = input;
+  return prisma.$transaction(async (tx) => {
+    const block = await tx.block.create({ data: { name } as Prisma.BlockUncheckedCreateInput });
+    if (apartmentCount > 0) {
+      const apartments = Array.from({ length: apartmentCount }, (_, i) => {
+        const floor = startFloor + Math.floor(i / unitsPerFloor);
+        const unit = (i % unitsPerFloor) + 1;
+        return { blockId: block.id, number: `${floor}${String(unit).padStart(2, '0')}`, floor };
+      });
+      // condominiumId é injetado pela extensão de tenant.
+      await tx.apartment.createMany({ data: apartments as unknown as Prisma.ApartmentCreateManyInput[] });
+    }
+    return tx.block.findFirstOrThrow({ where: { id: block.id }, include: { _count: { select: { apartments: true } } } });
+  });
 }
 export async function updateBlock(id: string, name: string) {
   const b = await prisma.block.findFirst({ where: { id }, select: { id: true } });

@@ -24,11 +24,38 @@ const blockOptions = computed(() => (blocks.value ?? []).map((b) => ({ value: b.
 
 // Bloco
 const showBlock = ref(false);
-const blockName = ref('');
+const blockForm = reactive({ name: '', apartmentCount: '', unitsPerFloor: '4', startFloor: '1' });
 const createBlock = useCreateBlock();
+
+// Prévia da numeração gerada (ex.: 101, 102, ...).
+const previewNumbers = computed(() => {
+  const count = Number(blockForm.apartmentCount);
+  const upf = Math.max(1, Number(blockForm.unitsPerFloor) || 4);
+  const start = Number(blockForm.startFloor) || 1;
+  if (!count || count < 1) return '';
+  const nums = Array.from({ length: Math.min(count, 4) }, (_, i) => {
+    const floor = start + Math.floor(i / upf);
+    return `${floor}${String((i % upf) + 1).padStart(2, '0')}`;
+  });
+  return nums.join(', ') + (count > 4 ? ', …' : '');
+});
+
+function resetBlock() {
+  Object.assign(blockForm, { name: '', apartmentCount: '', unitsPerFloor: '4', startFloor: '1' });
+}
 async function submitBlock() {
-  try { await createBlock.mutateAsync(blockName.value); toast.success('Bloco criado'); showBlock.value = false; blockName.value = ''; }
-  catch (e) { toast.error(apiError(e)); }
+  try {
+    const count = Number(blockForm.apartmentCount);
+    await createBlock.mutateAsync({
+      name: blockForm.name,
+      apartmentCount: count > 0 ? count : undefined,
+      unitsPerFloor: count > 0 ? Number(blockForm.unitsPerFloor) || 4 : undefined,
+      startFloor: count > 0 ? Number(blockForm.startFloor) || 1 : undefined,
+    });
+    toast.success(count > 0 ? `Bloco criado com ${count} apartamento(s)` : 'Bloco criado');
+    showBlock.value = false;
+    resetBlock();
+  } catch (e) { toast.error(apiError(e)); }
 }
 
 // Apartamento
@@ -72,10 +99,24 @@ async function submitApt() {
     </div>
 
     <Modal v-model:open="showBlock" title="Novo bloco">
-      <div><Label>Nome</Label><Input v-model="blockName" placeholder="Ex.: Bloco A, Torre 1" /></div>
+      <div class="space-y-3">
+        <div><Label>Nome</Label><Input v-model="blockForm.name" placeholder="Ex.: Bloco A, Torre 1" /></div>
+        <div>
+          <Label>Qtd. de apartamentos (opcional)</Label>
+          <Input v-model="blockForm.apartmentCount" type="number" min="0" placeholder="Ex.: 20" />
+          <p class="mt-1 text-xs text-muted-foreground">Deixe vazio para criar o bloco sem apartamentos.</p>
+        </div>
+        <div v-if="Number(blockForm.apartmentCount) > 0" class="grid grid-cols-2 gap-3">
+          <div><Label>Aptos por andar</Label><Input v-model="blockForm.unitsPerFloor" type="number" min="1" /></div>
+          <div><Label>Andar inicial</Label><Input v-model="blockForm.startFloor" type="number" /></div>
+        </div>
+        <p v-if="previewNumbers" class="text-xs text-muted-foreground">
+          Numeração gerada: <span class="font-medium">{{ previewNumbers }}</span>
+        </p>
+      </div>
       <template #footer>
         <Button variant="outline" @click="showBlock = false">Cancelar</Button>
-        <Button :disabled="!blockName" @click="submitBlock">Salvar</Button>
+        <Button :disabled="!blockForm.name" @click="submitBlock">Salvar</Button>
       </template>
     </Modal>
 

@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
-export const createBlockSchema = z.object({ name: z.string().min(1).max(60) });
+export const createBlockSchema = z.object({
+  name: z.string().min(1).max(60),
+  // Geração opcional de apartamentos junto do bloco.
+  apartmentCount: z.number().int().min(0).max(500).optional(),
+  unitsPerFloor: z.number().int().min(1).max(50).optional(), // p/ numeração por andar (default 4)
+  startFloor: z.number().int().min(-5).max(200).optional(), // andar inicial (default 1)
+});
 export const updateBlockSchema = z.object({ name: z.string().min(1).max(60) });
+
+export type CreateBlockInput = z.infer<typeof createBlockSchema>;
 
 export const createApartmentSchema = z.object({
   number: z.string().min(1).max(20),
