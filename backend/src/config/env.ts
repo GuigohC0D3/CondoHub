@@ -31,6 +31,12 @@ const schema = z.object({
   // Billing / gateway (Asaas, Pagar.me...). Opcional até integrar.
   BILLING_WEBHOOK_SECRET: z.string().optional(),
 
+  // Gateway de cobrança do morador (PIX/Boleto). Sem ASAAS_API_KEY → stub de dev.
+  PAYMENT_PROVIDER: z.enum(['stub', 'asaas']).default('stub'),
+  ASAAS_API_KEY: z.string().optional(),
+  ASAAS_BASE_URL: z.string().url().default('https://sandbox.asaas.com/api/v3'),
+  PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
+
   // Filas
   QUEUE_ENABLED: z.coerce.boolean().default(true),
 
