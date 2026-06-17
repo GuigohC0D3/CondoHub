@@ -19,6 +19,9 @@ export async function create(req: Request, res: Response) {
 export async function validateQr(req: Request, res: Response) {
   res.json({ visitor: await service.validateQr(req.params.qrCode) });
 }
+export async function share(req: Request, res: Response) {
+  res.json({ share: await service.getShare(req.params.id, user(req)) });
+}
 export async function checkIn(req: Request, res: Response) {
   res.json({ visitor: await service.checkIn(req.params.id, user(req), req.body?.photo) });
 }

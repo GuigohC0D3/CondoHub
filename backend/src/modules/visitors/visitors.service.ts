@@ -45,10 +45,50 @@ export async function create(input: CreateVisitorInput, user: AuthUser) {
   });
 
   await audit({ userId: user.id, action: 'visitor.create', entity: 'Visitor', entityId: visitor.id });
+  return { ...visitor, ...(await buildShare(visitor)) };
+}
+
+/**
+ * Monta o pacote de compartilhamento do QR: imagem (data URL), deep link da portaria
+ * e texto/atalho de WhatsApp para o morador enviar diretamente ao visitante.
+ */
+async function buildShare(visitor: {
+  qrCode: string;
+  fullName: string;
+  condominiumId: string;
+  expiresAt: Date | null;
+}) {
+  const condo = await prisma.condominium.findUnique({
+    where: { id: visitor.condominiumId },
+    select: { name: true },
+  });
+  const condoName = condo?.name ?? 'o condomínio';
   // QR codifica uma URL de deep link (funciona no scanner do app e em câmeras externas).
-  const accessUrl = `${env.WEB_URL.replace(/\/$/, '')}/portaria?code=${qrCode}`;
+  const accessUrl = `${env.WEB_URL.replace(/\/$/, '')}/portaria?code=${visitor.qrCode}`;
   const qrCodeDataUrl = await QRCode.toDataURL(accessUrl, { width: 320, margin: 1 });
-  return { ...visitor, qrCodeDataUrl, accessUrl };
+  const shareText =
+    `Olá, ${visitor.fullName}! Você foi autorizado(a) a visitar ${condoName}. ` +
+    `Apresente este QR Code na portaria: ${accessUrl}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const expired = !!visitor.expiresAt && visitor.expiresAt < new Date();
+  return { accessUrl, qrCodeDataUrl, shareText, whatsappUrl, expiresAt: visitor.expiresAt, expired };
+}
+
+/** Recupera os dados de compartilhamento do QR de um visitante já cadastrado. */
+export async function getShare(id: string, user: AuthUser) {
+  const visitor = await prisma.visitor.findFirst({ where: { id } });
+  if (!visitor) throw AppError.notFound('Visitante não encontrado');
+  if (user.role === 'MORADOR') {
+    const resident = await prisma.resident.findFirst({ where: { userId: user.id }, select: { id: true } });
+    if (visitor.residentId !== resident?.id) throw AppError.notFound('Visitante não encontrado');
+  }
+  return {
+    id: visitor.id,
+    fullName: visitor.fullName,
+    status: visitor.status,
+    qrCode: visitor.qrCode,
+    ...(await buildShare(visitor)),
+  };
 }
 
 export async function list(query: ListVisitorsQuery, user: AuthUser) {

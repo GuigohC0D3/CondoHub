@@ -41,6 +41,14 @@ visitorsRouter.get(
   asyncHandler(controller.validateQr),
 );
 
+// Pacote de compartilhamento do QR (morador envia ao visitante).
+visitorsRouter.get(
+  '/:id/share',
+  requireRole('SINDICO', 'PORTEIRO', 'MORADOR'),
+  validate({ params: idParamSchema }),
+  asyncHandler(controller.share),
+);
+
 visitorsRouter.get(
   '/:id',
   requireRole('SINDICO', 'PORTEIRO', 'MORADOR'),
