@@ -6,7 +6,8 @@ export default defineConfig({
     alias: { '@': resolve(__dirname, 'src') },
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    // Unitários (sem banco). A suíte de integração roda em vitest.integration.config.ts.
+    include: ['tests/unit/**/*.test.ts'],
     environment: 'node',
   },
 });
