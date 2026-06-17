@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 
 // Seed usa o client BASE (sem extensão de tenant) — bootstrap cross-tenant.
@@ -41,25 +41,30 @@ const TICKET_PRIORITY = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 const TICKET_TITLES = ['Vazamento na garagem', 'Lâmpada queimada no hall', 'Barulho após 22h', 'Portão não abre', 'Infiltração no teto', 'Elevador parado', 'Vazamento de gás', 'Limpeza da escada'] as const;
 const NOTIF_TYPES = ['NOTICE', 'RESERVATION', 'TICKET', 'PACKAGE', 'VISITOR', 'BILLING', 'SYSTEM'] as const;
 
-// Quantidades — somam exatamente 300 registros (base + bulk). Ver log final.
+// Quantidades — ~300 por tabela principal. blocks (nomes A–Z) e commonAreas
+// (4 defs fixas) têm limite estrutural e não escalam. Ver log final.
 const N = {
-  residentUsers: 30,
-  blocks: 4,
-  apartments: 30,
-  residents: 30,
-  vehicles: 20,
+  residentUsers: 300, // deve ser >= residents (residents[i] usa residentUsers[i])
+  blocks: 10,
+  apartments: 300,
+  residents: 300,
+  vehicles: 300,
   commonAreas: 4,
-  reservations: 25,
-  notices: 8,
-  expenses: 20,
-  revenues: 20,
-  tickets: 25,
-  ticketComments: 12,
-  visitors: 20,
-  packages: 20,
-  notifications: 21,
-  payments: 6,
+  reservations: 300,
+  notices: 300,
+  expenses: 300,
+  revenues: 300,
+  tickets: 300,
+  ticketComments: 300,
+  visitors: 300,
+  packages: 300,
+  notifications: 300,
+  payments: 300,
+  charges: 300,
 };
+
+// Fração ideal sintética por unidade (soma ≈ 1.0) — base do voto ponderado em assembleia.
+const FRACTION = Number((1 / N.apartments).toFixed(6));
 
 async function main() {
   const passwordHash = await argon2.hash('changeme123', { type: argon2.argon2id });
@@ -116,6 +121,9 @@ async function main() {
   await prisma.reservation.deleteMany({ where: cid });
   await prisma.ticket.deleteMany({ where: cid }); // cascade: comments, attachments
   await prisma.notice.deleteMany({ where: cid }); // cascade: reads, attachments
+  await prisma.charge.deleteMany({ where: cid }); // antes de apartment (FK Restrict)
+  await prisma.chargeBatch.deleteMany({ where: cid });
+  await prisma.assembly.deleteMany({ where: cid }); // cascade: items, options, votes, attendances
   await prisma.resident.deleteMany({ where: cid }); // cascade: vehicles, docs, history
   await prisma.apartment.deleteMany({ where: cid });
   await prisma.block.deleteMany({ where: cid });
@@ -142,7 +150,7 @@ async function main() {
       const block = blocks[i % blocks.length];
       const floor = Math.floor(i / blocks.length) + 1;
       const number = `${floor}0${(i % blocks.length) + 1}`;
-      return prisma.apartment.create({ data: { condominiumId: condo.id, blockId: block.id, number, floor } });
+      return prisma.apartment.create({ data: { condominiumId: condo.id, blockId: block.id, number, floor, idealFraction: FRACTION } });
     }),
   );
 
@@ -394,6 +402,187 @@ async function main() {
   );
 
   // ---------------------------------------------------------------------------
+  // 4b. Cobranças do morador (Charge) + lotes mensais (ChargeBatch)
+  //     Gateway é "simulado" inline (o que o stub gravaria) — seed roda offline.
+  // ---------------------------------------------------------------------------
+  const now = new Date();
+  const ymKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const monthDates = [2, 1, 0].map((back) => new Date(now.getFullYear(), now.getMonth() - back, 1));
+  const CHG_STATUS = ['PAID', 'PAID', 'PENDING', 'OVERDUE', 'CANCELED'] as const;
+
+  const chargeBatches = await Promise.all(
+    monthDates.map((d) =>
+      prisma.chargeBatch.create({
+        data: { condominiumId: condo.id, referenceMonth: ymKey(d), dueDate: new Date(d.getFullYear(), d.getMonth(), 10), defaultAmount: 450, totalCharges: 0 },
+      }),
+    ),
+  );
+
+  const perBatch = [0, 0, 0];
+  await Promise.all(
+    Array.from({ length: N.charges }, (_, i) => {
+      const m = i % 3;
+      perBatch[m] += 1;
+      const resident = residents[i % residents.length];
+      const status = pick(CHG_STATUS, i);
+      const method = i % 5 === 0 ? 'BOLETO' : 'PIX';
+      const amount = 450 + (i % 6) * 25;
+      const d = monthDates[m];
+      const dueDate = new Date(d.getFullYear(), d.getMonth(), 10);
+      const paid = status === 'PAID';
+      const overdue = status === 'OVERDUE';
+      return prisma.charge.create({
+        data: {
+          condominiumId: condo.id,
+          apartmentId: resident.apartmentId,
+          residentId: resident.id,
+          batchId: chargeBatches[m].id,
+          kind: 'CONDO_FEE',
+          description: `Taxa condominial ${ymKey(d)}`,
+          referenceMonth: ymKey(d),
+          amount,
+          fineAmount: overdue ? Number((amount * 0.02).toFixed(2)) : undefined,
+          interestAmount: overdue ? Number((amount * 0.01).toFixed(2)) : undefined,
+          paidAmount: paid ? amount : undefined,
+          dueDate,
+          status,
+          method,
+          gatewayChargeId: `seed-chg-${i}`,
+          pixPayload: method === 'PIX' ? `00020126seed-pix-${i}` : undefined,
+          boletoUrl: method === 'BOLETO' ? `https://pay.demo/boleto/seed-${i}` : undefined,
+          paidAt: paid ? new Date(dueDate.getTime() - 2 * 86_400_000) : undefined,
+          canceledAt: status === 'CANCELED' ? new Date() : undefined,
+        },
+      });
+    }),
+  );
+  await Promise.all(
+    chargeBatches.map((b, m) => prisma.chargeBatch.update({ where: { id: b.id }, data: { totalCharges: perBatch[m] } })),
+  );
+
+  // ---------------------------------------------------------------------------
+  // 4c. Assembleias (Assembly) + itens, presença e votos ponderados
+  // ---------------------------------------------------------------------------
+  const totalWeight = Number((N.apartments * FRACTION).toFixed(6));
+  const present = residents.slice(0, 200); // unidades presentes (quórum > 50%)
+
+  type Rule = 'SIMPLE_MAJORITY' | 'ABSOLUTE_MAJORITY' | 'TWO_THIRDS' | 'UNANIMITY';
+  type Status = 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED';
+  const assemblyDefs: {
+    title: string;
+    type: 'ORDINARIA' | 'EXTRAORDINARIA';
+    mode: 'PRESENCIAL' | 'VIRTUAL' | 'HIBRIDA';
+    status: Status;
+    items: { title: string; quorumRule: Rule; options?: string[] }[];
+  }[] = [
+    { title: 'AGO 2026 — Prestação de Contas', type: 'ORDINARIA', mode: 'HIBRIDA', status: 'CLOSED', items: [
+      { title: 'Aprovação das contas do exercício', quorumRule: 'ABSOLUTE_MAJORITY' },
+      { title: 'Aprovação da previsão orçamentária', quorumRule: 'SIMPLE_MAJORITY' },
+    ] },
+    { title: 'AGE — Reforma da Fachada', type: 'EXTRAORDINARIA', mode: 'VIRTUAL', status: 'CLOSED', items: [
+      { title: 'Aprovação da obra de fachada (rateio extra)', quorumRule: 'TWO_THIRDS' },
+    ] },
+    { title: 'AGE — Eleição de Síndico', type: 'EXTRAORDINARIA', mode: 'PRESENCIAL', status: 'OPEN', items: [
+      { title: 'Eleição do síndico (biênio 2026-2028)', quorumRule: 'SIMPLE_MAJORITY', options: ['Chapa 1 — Renovação', 'Chapa 2 — Continuidade', 'Voto em branco'] },
+    ] },
+    { title: 'AGO — Orçamento Anual', type: 'ORDINARIA', mode: 'VIRTUAL', status: 'OPEN', items: [
+      { title: 'Reajuste da taxa condominial', quorumRule: 'ABSOLUTE_MAJORITY' },
+    ] },
+    { title: 'AGE — Novo Regimento Interno', type: 'EXTRAORDINARIA', mode: 'HIBRIDA', status: 'SCHEDULED', items: [
+      { title: 'Aprovação do novo regimento interno', quorumRule: 'TWO_THIRDS' },
+    ] },
+    { title: 'AGE — Instalação de Câmeras', type: 'EXTRAORDINARIA', mode: 'VIRTUAL', status: 'DRAFT', items: [
+      { title: 'Instalação de CFTV nas áreas comuns', quorumRule: 'SIMPLE_MAJORITY' },
+    ] },
+  ];
+
+  for (const [ai, def] of assemblyDefs.entries()) {
+    const isClosed = def.status === 'CLOSED';
+    const isOpen = def.status === 'OPEN';
+    const openedAt = isClosed ? daysFromNow(-(ai * 30 + 15)) : isOpen ? daysFromNow(0) : undefined;
+    const closedAt = isClosed ? daysFromNow(-(ai * 30 + 14)) : undefined;
+    const itemStatus = isClosed ? 'CLOSED' : isOpen ? 'OPEN' : 'PENDING';
+
+    const assembly = await prisma.assembly.create({
+      data: {
+        condominiumId: condo.id,
+        title: def.title,
+        notice: `Ficam convocados os condôminos para a ${def.title}, nos termos da Lei 14.309/2022. Ordem do dia conforme itens registrados.`,
+        type: def.type,
+        mode: def.mode,
+        status: def.status,
+        scheduledFor: openedAt ?? daysFromNow((ai + 1) * 7),
+        openedAt,
+        closedAt,
+        items: {
+          create: def.items.map((it, idx) => ({
+            order: idx,
+            title: it.title,
+            quorumRule: it.quorumRule,
+            status: itemStatus,
+            openedAt,
+            closedAt,
+            options: it.options ? { create: it.options.map((label, oi) => ({ label, order: oi })) } : undefined,
+          })),
+        },
+      },
+      include: { items: { include: { options: true } } },
+    });
+
+    if (def.status === 'DRAFT' || def.status === 'SCHEDULED') continue;
+
+    // Presença de todas as unidades presentes.
+    await prisma.assemblyAttendance.createMany({
+      data: present.map((r) => ({ assemblyId: assembly.id, apartmentId: r.apartmentId, residentId: r.id, weight: FRACTION })),
+    });
+
+    // OPEN: votação em andamento (parte das unidades já votou). CLOSED: todas votaram.
+    const voters = isOpen ? present.slice(0, 120) : present;
+
+    for (const item of assembly.items) {
+      const opts = item.options;
+      const votesData = voters.map((r, vi) => {
+        if (opts.length > 0) {
+          return { itemId: item.id, apartmentId: r.apartmentId, residentId: r.id, optionId: opts[vi % opts.length].id, choice: 'OPTION' as const, weight: FRACTION };
+        }
+        const mod = vi % 20; // ~65% SIM, 25% NÃO, 10% ABSTENÇÃO
+        const choice = (mod < 13 ? 'YES' : mod < 18 ? 'NO' : 'ABSTAIN') as 'YES' | 'NO' | 'ABSTAIN';
+        return { itemId: item.id, apartmentId: r.apartmentId, residentId: r.id, optionId: null as string | null, choice, weight: FRACTION };
+      });
+      await prisma.assemblyVote.createMany({ data: votesData });
+
+      if (!isClosed) continue;
+
+      // Apuração (peso = FRACTION por unidade).
+      let yes = 0, no = 0, abstain = 0;
+      const optTally = new Map<string, number>();
+      for (const v of votesData) {
+        if (v.choice === 'OPTION' && v.optionId) optTally.set(v.optionId, (optTally.get(v.optionId) ?? 0) + FRACTION);
+        else if (v.choice === 'YES') yes += FRACTION;
+        else if (v.choice === 'NO') no += FRACTION;
+        else if (v.choice === 'ABSTAIN') abstain += FRACTION;
+      }
+      const r6 = (n: number) => Number(n.toFixed(6));
+      let approved: boolean | null = null;
+      let resultJson: Prisma.InputJsonValue;
+      if (opts.length > 0) {
+        const options = opts
+          .map((o) => ({ optionId: o.id, label: o.label, weight: r6(optTally.get(o.id) ?? 0) }))
+          .sort((a, b) => b.weight - a.weight);
+        resultJson = { itemId: item.id, rule: item.quorumRule, totalWeight, options, winnerOptionId: options[0]?.optionId ?? null, votingUnits: votesData.length };
+      } else {
+        approved =
+          item.quorumRule === 'TWO_THIRDS' ? yes >= (totalWeight * 2) / 3
+          : item.quorumRule === 'ABSOLUTE_MAJORITY' ? yes > totalWeight / 2
+          : item.quorumRule === 'UNANIMITY' ? no === 0 && abstain === 0 && yes >= totalWeight
+          : yes > no;
+        resultJson = { itemId: item.id, rule: item.quorumRule, totalWeight, yes: r6(yes), no: r6(no), abstain: r6(abstain), votingUnits: votesData.length, approved };
+      }
+      await prisma.assemblyItem.update({ where: { id: item.id }, data: { approved, resultJson } });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // 5. Relatório
   // ---------------------------------------------------------------------------
   const total =
@@ -414,7 +603,13 @@ async function main() {
     (await prisma.ticketComment.count()) +
     (await prisma.visitor.count()) +
     (await prisma.package.count()) +
-    (await prisma.notification.count());
+    (await prisma.notification.count()) +
+    (await prisma.charge.count()) +
+    (await prisma.chargeBatch.count()) +
+    (await prisma.assembly.count()) +
+    (await prisma.assemblyItem.count()) +
+    (await prisma.assemblyVote.count()) +
+    (await prisma.assemblyAttendance.count());
 
   /* eslint-disable no-console */
   console.log('✅ Seed concluído. Total de registros:', total);
@@ -424,7 +619,7 @@ async function main() {
   console.log('  SÍNDICO     : sindico@demo.com.br        (slug: demo)');
   console.log('  PORTEIRO    : porteiro@demo.com.br       (slug: demo)');
   console.log('  MORADOR     : morador@demo.com.br        (slug: demo)');
-  console.log('  +29 moradores: morador2@demo.com.br ... morador30@demo.com.br');
+  console.log(`  +${N.residentUsers - 1} moradores: morador2@demo.com.br ... morador${N.residentUsers}@demo.com.br`);
   /* eslint-enable no-console */
 }
 
