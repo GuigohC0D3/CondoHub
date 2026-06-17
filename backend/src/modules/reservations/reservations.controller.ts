@@ -24,5 +24,5 @@ export async function approve(req: Request, res: Response) {
 }
 
 export async function cancel(req: Request, res: Response) {
-  res.json({ reservation: await service.cancel(req.params.id, user(req)) });
+  res.json({ reservation: await service.cancel(req.params.id, user(req), req.body) });
 }

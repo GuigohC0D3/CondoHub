@@ -1,6 +1,7 @@
 import { Prisma, Reservation, ReservationStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
+import { logger } from '@/lib/logger';
 import { AppError } from '@/utils/errors';
 import { paginate, toSkipTake } from '@/utils/pagination';
 import {
@@ -12,6 +13,7 @@ import {
 import type { AuthUser } from '@/types/express';
 import type {
   ApproveReservationInput,
+  CancelReservationInput,
   CreateReservationInput,
   ListReservationsQuery,
 } from './reservations.schemas';
@@ -196,7 +198,11 @@ export async function setApproval(id: string, input: ApproveReservationInput, us
 
   const updated = await prisma.reservation.update({
     where: { id },
-    data: { status: input.approve ? 'APPROVED' : 'REJECTED' },
+    data: {
+      status: input.approve ? 'APPROVED' : 'REJECTED',
+      responseMessage: input.message ?? null,
+      respondedAt: new Date(),
+    },
     include: reservationInclude,
   });
   await audit({
@@ -204,18 +210,49 @@ export async function setApproval(id: string, input: ApproveReservationInput, us
     action: input.approve ? 'reservation.approve' : 'reservation.reject',
     entity: 'Reservation',
     entityId: id,
-    metadata: input.reason ? { reason: input.reason } : undefined,
+    metadata: input.message ? { message: input.message } : undefined,
   });
+
+  const area = updated.commonArea.name;
+  let body = input.approve ? `Sua reserva de ${area} foi aprovada.` : `Sua reserva de ${area} foi rejeitada.`;
+  if (input.message) body += ` Mensagem do síndico: "${input.message}"`;
+  await notifyResident(reservation.residentId, input.approve ? 'Reserva aprovada' : 'Reserva rejeitada', body);
+
   return updated;
 }
 
-export async function cancel(id: string, user: AuthUser) {
+/**
+ * Notifica o morador dono da reserva. Silencioso por design — não deve derrubar
+ * a operação de aprovação/cancelamento.
+ */
+async function notifyResident(residentId: string, title: string, body: string): Promise<void> {
+  try {
+    const resident = await prisma.resident.findFirst({ where: { id: residentId }, select: { userId: true } });
+    if (!resident?.userId) return;
+    await prisma.notification.create({
+      // condominiumId injetado pela extensão de tenant.
+      data: {
+        userId: resident.userId,
+        type: 'RESERVATION',
+        title,
+        body,
+        linkUrl: '/reservas',
+      } as Prisma.NotificationUncheckedCreateInput,
+    });
+  } catch (err) {
+    logger.warn({ err, residentId }, 'Falha ao notificar morador sobre reserva');
+  }
+}
+
+export async function cancel(id: string, user: AuthUser, input?: CancelReservationInput) {
   const reservation = await prisma.reservation.findFirst({ where: { id } });
   if (!reservation) throw AppError.notFound('Reserva não encontrada');
 
+  let isOwner = false;
   if (user.role === 'MORADOR') {
     const resident = await prisma.resident.findFirst({ where: { userId: user.id }, select: { id: true } });
     if (reservation.residentId !== resident?.id) throw AppError.notFound('Reserva não encontrada');
+    isOwner = true;
   }
   if (reservation.status === 'CANCELED' || reservation.status === 'REJECTED') {
     throw AppError.business('Reserva não pode ser cancelada');
@@ -223,9 +260,26 @@ export async function cancel(id: string, user: AuthUser) {
 
   const updated = await prisma.reservation.update({
     where: { id },
-    data: { status: 'CANCELED', canceledAt: new Date() },
+    data: {
+      status: 'CANCELED',
+      canceledAt: new Date(),
+      ...(input?.message && { responseMessage: input.message, respondedAt: new Date() }),
+    },
     include: reservationInclude,
   });
-  await audit({ userId: user.id, action: 'reservation.cancel', entity: 'Reservation', entityId: id });
+  await audit({
+    userId: user.id,
+    action: 'reservation.cancel',
+    entity: 'Reservation',
+    entityId: id,
+    metadata: input?.message ? { message: input.message } : undefined,
+  });
+
+  // Cancelamento pela administração → avisa o morador.
+  if (!isOwner) {
+    let body = `Sua reserva de ${updated.commonArea.name} foi cancelada pela administração.`;
+    if (input?.message) body += ` Mensagem: "${input.message}"`;
+    await notifyResident(reservation.residentId, 'Reserva cancelada', body);
+  }
   return updated;
 }

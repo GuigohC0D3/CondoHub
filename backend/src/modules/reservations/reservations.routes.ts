@@ -6,6 +6,7 @@ import { asyncHandler } from '@/utils/async-handler';
 import * as controller from './reservations.controller';
 import {
   approveReservationSchema,
+  cancelReservationSchema,
   createReservationSchema,
   idParamSchema,
   listReservationsQuerySchema,
@@ -49,6 +50,6 @@ reservationsRouter.patch(
 reservationsRouter.patch(
   '/:id/cancel',
   requireRole('SINDICO', 'MORADOR'),
-  validate({ params: idParamSchema }),
+  validate({ params: idParamSchema, body: cancelReservationSchema }),
   asyncHandler(controller.cancel),
 );

@@ -390,6 +390,8 @@ model Reservation {
   endsAt        DateTime
   status        ReservationStatus @default(PENDING)
   notes         String?
+  responseMessage String?         // resposta do síndico ao aprovar/rejeitar/cancelar
+  respondedAt     DateTime?
   canceledAt    DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt

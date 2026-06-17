@@ -27,7 +27,12 @@ export const listReservationsQuerySchema = z.object({
 
 export const approveReservationSchema = z.object({
   approve: z.boolean(),
-  reason: z.string().max(300).optional(),
+  // Resposta enviada ao morador (visível na reserva e na notificação).
+  message: z.string().max(500).optional(),
+});
+
+export const cancelReservationSchema = z.object({
+  message: z.string().max(500).optional(),
 });
 
 export const idParamSchema = z.object({ id: z.string().uuid() });
@@ -35,3 +40,4 @@ export const idParamSchema = z.object({ id: z.string().uuid() });
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 export type ListReservationsQuery = z.infer<typeof listReservationsQuerySchema>;
 export type ApproveReservationInput = z.infer<typeof approveReservationSchema>;
+export type CancelReservationInput = z.infer<typeof cancelReservationSchema>;
