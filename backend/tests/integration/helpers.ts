@@ -25,9 +25,12 @@ export async function createCondo(name: string): Promise<string> {
   return condo.id;
 }
 
-/** Limpa o banco de teste (trunca a raiz; cascateia para todas as tabelas de tenant). */
+/**
+ * Limpa o banco de teste. Trunca a raiz (cascateia para todas as tabelas de
+ * tenant) e as tabelas cross-tenant (sem condominiumId, que não são cascateadas).
+ */
 export async function resetDb(): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "Condominium" RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE TABLE "Condominium", "WebhookEvent" RESTART IDENTITY CASCADE');
 }
 
 export { prisma };
