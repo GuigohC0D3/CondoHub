@@ -23,6 +23,8 @@ const TENANT_MODELS = new Set<string>([
   'ExpenseCategory',
   'Subscription',
   'Invitation',
+  'Charge',
+  'ChargeBatch',
 ]);
 
 // findUnique/findUniqueOrThrow NÃO entram aqui: o Prisma só aceita campos únicos
