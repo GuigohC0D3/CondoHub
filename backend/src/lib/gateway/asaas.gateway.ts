@@ -40,22 +40,49 @@ function mapStatus(asaas: string): GatewayChargeStatus {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 12_000;
+const MAX_GET_RETRIES = 2;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!env.ASAAS_API_KEY) throw AppError.business('Gateway Asaas não configurado (ASAAS_API_KEY ausente)');
-  const res = await fetch(`${env.ASAAS_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      access_token: env.ASAAS_API_KEY,
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    logger.error({ path, status: res.status, body: text.slice(0, 500) }, 'Asaas API error');
-    throw AppError.business(`Falha no gateway Asaas (${res.status})`);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  // Só métodos idempotentes (GET) são re-tentados: re-tentar um POST poderia
+  // duplicar a cobrança caso a 1ª requisição tenha chegado mas a resposta se perdido.
+  const maxAttempts = method === 'GET' ? MAX_GET_RETRIES + 1 : 1;
+
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`${env.ASAAS_BASE_URL}${path}`, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: {
+          'Content-Type': 'application/json',
+          access_token: env.ASAAS_API_KEY,
+          ...(init?.headers ?? {}),
+        },
+      });
+      // 5xx: erro transitório do gateway → re-tenta (apenas GET).
+      if (res.status >= 500 && attempt < maxAttempts) {
+        lastErr = new Error(`Asaas ${res.status}`);
+        await sleep(250 * attempt);
+        continue;
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        logger.error({ path, status: res.status, body: text.slice(0, 500) }, 'Asaas API error');
+        throw AppError.business(`Falha no gateway Asaas (${res.status})`);
+      }
+      return (await res.json()) as T;
+    } catch (err) {
+      if (err instanceof AppError) throw err; // erro de negócio (4xx) não é re-tentado
+      lastErr = err; // timeout / falha de rede
+      if (attempt < maxAttempts) await sleep(250 * attempt);
+    }
   }
-  return (await res.json()) as T;
+  logger.error({ path, err: lastErr }, 'Asaas indisponível (timeout/rede)');
+  throw AppError.business('Gateway Asaas indisponível, tente novamente em instantes');
 }
 
 /** Cria (ou reusa) o cliente Asaas pelo CPF. TODO: cachear o id no Resident. */
@@ -100,13 +127,18 @@ export const asaasGateway: PaymentGateway = {
 
   async createPixCharge(input: CreateChargeInput): Promise<GatewayChargeResult> {
     const payment = await createPayment(input, 'PIX');
-    const qr = await api<{ encodedImage: string; payload: string }>(`/payments/${payment.id}/pixQrCode`);
-    return {
-      gatewayChargeId: payment.id,
-      status: mapStatus(payment.status),
-      pixPayload: qr.payload,
-      pixQrCodeUrl: qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : undefined,
-    };
+    // QR é uma 2ª chamada (GET): se falhar, NÃO perdemos a cobrança já criada —
+    // devolvemos com o gatewayChargeId e o QR é recuperável depois via getCharge/sync.
+    let pixPayload: string | undefined;
+    let pixQrCodeUrl: string | undefined;
+    try {
+      const qr = await api<{ encodedImage: string; payload: string }>(`/payments/${payment.id}/pixQrCode`);
+      pixPayload = qr.payload;
+      pixQrCodeUrl = qr.encodedImage ? `data:image/png;base64,${qr.encodedImage}` : undefined;
+    } catch (err) {
+      logger.warn({ err, paymentId: payment.id }, 'Asaas: cobrança PIX criada, mas QR não recuperado (sincronizar depois)');
+    }
+    return { gatewayChargeId: payment.id, status: mapStatus(payment.status), pixPayload, pixQrCodeUrl };
   },
 
   async createBoleto(input: CreateChargeInput): Promise<GatewayChargeResult> {
