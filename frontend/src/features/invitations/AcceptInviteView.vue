@@ -19,6 +19,7 @@ const loading = ref(true);
 const error = ref('');
 const password = ref('');
 const confirm = ref('');
+const acceptedTerms = ref(false);
 const submitting = ref(false);
 const ROLE: Record<string, string> = { MORADOR: 'Morador', PORTEIRO: 'Porteiro' };
 
@@ -33,7 +34,7 @@ async function submit() {
   error.value = '';
   submitting.value = true;
   try {
-    const res = await acceptInvite(token, password.value);
+    const res = await acceptInvite(token, password.value, acceptedTerms.value);
     auth.setSession(res.accessToken, res.refreshToken, res.user);
     router.push(homeFor(res.user.role));
   } catch (e) {
@@ -61,8 +62,12 @@ async function submit() {
         </div>
         <div><Label>Crie sua senha</Label><Input v-model="password" type="password" /></div>
         <div><Label>Confirme a senha</Label><Input v-model="confirm" type="password" /></div>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="acceptedTerms" type="checkbox" class="mt-0.5" />
+          <span>Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> (LGPD).</span>
+        </label>
         <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-        <Button type="submit" class="w-full" :disabled="password.length < 8 || submitting">
+        <Button type="submit" class="w-full" :disabled="password.length < 8 || !acceptedTerms || submitting">
           {{ submitting ? 'Criando...' : 'Criar conta e entrar' }}
         </Button>
       </form>

@@ -10,6 +10,8 @@ export const createInvitationSchema = z.object({
 
 export const acceptInvitationSchema = z.object({
   password: z.string().min(8).max(100),
+  // LGPD: aceite obrigatório dos Termos de Uso e da Política de Privacidade.
+  acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'É necessário aceitar os Termos e a Política de Privacidade' }) }),
 });
 
 export const tokenParamSchema = z.object({ token: z.string().min(10).max(120) });

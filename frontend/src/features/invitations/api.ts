@@ -43,5 +43,5 @@ export interface InviteInfo {
 export const fetchInviteInfo = async (token: string) =>
   (await api.get<{ invitation: InviteInfo }>(`/invitations/accept/${token}`)).data.invitation;
 
-export const acceptInvite = async (token: string, password: string) =>
-  (await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(`/invitations/accept/${token}`, { password })).data;
+export const acceptInvite = async (token: string, password: string, acceptedTerms: boolean) =>
+  (await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>(`/invitations/accept/${token}`, { password, acceptedTerms })).data;

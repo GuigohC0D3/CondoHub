@@ -16,6 +16,8 @@ import { billingRouter } from '@/modules/billing/billing.routes';
 import { chargesRouter } from '@/modules/charges/charges.routes';
 import { assembliesRouter } from '@/modules/assemblies/assemblies.routes';
 import { suggestionsRouter } from '@/modules/suggestions/suggestions.routes';
+import { legalRouter } from '@/modules/legal/legal.routes';
+import { privacyRouter } from '@/modules/privacy/privacy.routes';
 import { uploadsRouter } from '@/modules/uploads/uploads.routes';
 import { invitationsRouter } from '@/modules/invitations/invitations.routes';
 
@@ -40,4 +42,6 @@ apiRouter.use('/billing', billingRouter);
 apiRouter.use('/charges', chargesRouter);
 apiRouter.use('/assemblies', assembliesRouter);
 apiRouter.use('/suggestions', suggestionsRouter);
+apiRouter.use('/legal', legalRouter);
+apiRouter.use('/privacy', privacyRouter);
 apiRouter.use('/uploads', uploadsRouter);

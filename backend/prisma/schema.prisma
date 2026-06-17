@@ -155,6 +155,7 @@ model User {
   assignedTickets Ticket[]       @relation("TicketAssignee")
   ticketComments TicketComment[]
   auditLogs      AuditLog[]
+  consents       ConsentRecord[]
 
   // Email único POR tenant (mesmo email pode existir em condomínios diferentes).
   @@unique([condominiumId, email])
@@ -960,4 +961,26 @@ model SuggestionVote {
 
   @@unique([suggestionId, residentId])
   @@index([suggestionId])
+}
+
+// ============================================================
+// LGPD — consentimento versionado (base legal e prova de aceite)
+// ============================================================
+
+enum ConsentDocument {
+  TERMS_OF_USE
+  PRIVACY_POLICY
+}
+
+model ConsentRecord {
+  id         String          @id @default(uuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document   ConsentDocument
+  version    String          // versão do documento aceita (ex.: "2026-06-17")
+  acceptedAt DateTime        @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([userId])
 }

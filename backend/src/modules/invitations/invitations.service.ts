@@ -11,6 +11,7 @@ import { AppError } from '@/utils/errors';
 import {
   generateRefreshToken, refreshExpiry, signAccessToken,
 } from '@/modules/auth/token.service';
+import { recordConsent } from '@/modules/legal/legal.service';
 import type { AuthUser } from '@/types/express';
 import type { CreateInvitationInput } from './invitations.schemas';
 
@@ -113,6 +114,8 @@ export async function accept(token: string, password: string, meta: { userAgent?
       });
     }
     await tx.invitation.update({ where: { id: inv.id }, data: { status: 'ACCEPTED', acceptedAt: new Date() } });
+    // LGPD: registra o aceite dos Termos e da Política no momento do onboarding.
+    await recordConsent(created.id, ['TERMS_OF_USE', 'PRIVACY_POLICY'], meta, tx);
     return created;
   });
 
