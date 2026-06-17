@@ -13,6 +13,7 @@ import { financeRouter } from '@/modules/finance/finance.routes';
 import { dashboardRouter } from '@/modules/dashboard/dashboard.routes';
 import { adminRouter } from '@/modules/admin/admin.routes';
 import { billingRouter } from '@/modules/billing/billing.routes';
+import { chargesRouter } from '@/modules/charges/charges.routes';
 import { uploadsRouter } from '@/modules/uploads/uploads.routes';
 import { invitationsRouter } from '@/modules/invitations/invitations.routes';
 
@@ -34,4 +35,5 @@ apiRouter.use('/finance', financeRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/billing', billingRouter);
+apiRouter.use('/charges', chargesRouter);
 apiRouter.use('/uploads', uploadsRouter);
