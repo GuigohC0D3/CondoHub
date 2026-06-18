@@ -133,7 +133,6 @@ bullet('Porteiro — valida visitantes por QR Code e registra encomendas.', 'Por
 // ============================================================
 // MÓDULOS DO MVP
 // ============================================================
-doc.addPage();
 sectionTitle('Módulos do MVP');
 paragraph('O MVP já entrega os módulos essenciais para operar um condomínio de ponta a ponta:');
 
@@ -166,7 +165,6 @@ bullet('painel com os principais indicadores do condomínio para o síndico.', '
 // ============================================================
 // DIFERENCIAIS + SEGURANÇA
 // ============================================================
-doc.addPage();
 sectionTitle('Diferenciais');
 bullet('cobrança por PIX nativa, do envio à baixa do pagamento.', 'Pagamento descomplicado:');
 bullet('voto ponderado por fração ideal e ata automática — algo raro no mercado.', 'Assembleia digital de verdade:');
@@ -189,7 +187,6 @@ paragraph(
 // ============================================================
 // STATUS DO MVP + ROADMAP + CONTATO
 // ============================================================
-doc.addPage();
 sectionTitle('Status do MVP');
 paragraph('Plataforma funcional e testada, pronta para operação assistida (early access) com os primeiros condomínios.');
 bullet('Disponível agora: cobranças, finanças, reservas, chamados, avisos, sugestões, visitantes, encomendas, assembleias e dashboard.', '');
@@ -204,7 +201,6 @@ bullet('marketplace de serviços para o condomínio.');
 // ============================================================
 // PLANOS E PREÇOS
 // ============================================================
-doc.addPage();
 sectionTitle('Planos e preços');
 paragraph(
   'Assinatura mensal paga pelo condomínio, por faixa de unidades — sem custo para o morador. '
@@ -221,6 +217,7 @@ doc.font('Helvetica').fontSize(9).fillColor(MUTED).text(
   M, doc.y, { width: CONTENT_W, lineGap: 1 },
 );
 
+ensureSpace(170); // mantém título + caixa + contato juntos na mesma página
 sectionTitle('Vamos conversar');
 doc.roundedRect(M, doc.y, CONTENT_W, 88, 8).fill(LIGHT);
 const cy = doc.y;
