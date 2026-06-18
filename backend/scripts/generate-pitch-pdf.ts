@@ -58,6 +58,20 @@ function groupTitle(text: string) {
   doc.moveDown(0.25);
 }
 
+function planCard(name: string, units: string, price: string, desc: string, highlight?: boolean) {
+  ensureSpace(78);
+  const y = doc.y;
+  const h = 66;
+  doc.roundedRect(M, y, CONTENT_W, h, 8).fill(highlight ? LIGHT : '#FFFFFF');
+  if (highlight) doc.roundedRect(M, y, CONTENT_W, h, 8).lineWidth(1).stroke(PRIMARY);
+  else doc.roundedRect(M, y, CONTENT_W, h, 8).lineWidth(0.8).stroke(LINE);
+  doc.fillColor(DARK).font('Helvetica-Bold').fontSize(13).text(name, M + 16, y + 12);
+  doc.fillColor(MUTED).font('Helvetica').fontSize(9.5).text(units, M + 16, y + 31);
+  doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(15).text(price, M + CONTENT_W / 2, y + 14, { width: CONTENT_W / 2 - 16, align: 'right' });
+  doc.fillColor('#334155').font('Helvetica').fontSize(9).text(desc, M + 16, y + 46, { width: CONTENT_W - 32, lineGap: 1 });
+  doc.y = y + h + 8;
+}
+
 // ============================================================
 // CAPA
 // ============================================================
@@ -187,6 +201,26 @@ bullet('aplicativo mobile para o morador.');
 bullet('conciliação bancária automática e régua de inadimplência.');
 bullet('marketplace de serviços para o condomínio.');
 
+// ============================================================
+// PLANOS E PREÇOS
+// ============================================================
+doc.addPage();
+sectionTitle('Planos e preços');
+paragraph(
+  'Assinatura mensal paga pelo condomínio, por faixa de unidades — sem custo para o morador. '
+  + 'Comece grátis e evolua conforme a necessidade. Sem fidelidade e sem taxa de instalação.',
+);
+doc.moveDown(0.3);
+planCard('Free', 'até 10 unidades', 'R$ 0/mês', 'Avisos e cadastro de moradores. Ideal para experimentar a plataforma.');
+planCard('Básico', 'até 30 unidades', 'R$ 99/mês', 'Avisos, moradores, reservas de áreas comuns e chamados de manutenção.');
+planCard('Profissional', 'até 100 unidades', 'R$ 249/mês', 'Tudo do Básico + financeiro, portaria (visitantes/encomendas), assembleias e relatórios.', true);
+planCard('Enterprise', '100+ unidades / administradoras', 'sob consulta', 'Multi-condomínio, suporte prioritário e white-label. A partir de R$ 2,50/unidade.');
+doc.moveDown(0.2);
+doc.font('Helvetica').fontSize(9).fillColor(MUTED).text(
+  'Valores de referência. Implantação assistida e migração dos dados atuais sem custo no período de avaliação (30 dias).',
+  M, doc.y, { width: CONTENT_W, lineGap: 1 },
+);
+
 sectionTitle('Vamos conversar');
 doc.roundedRect(M, doc.y, CONTENT_W, 88, 8).fill(LIGHT);
 const cy = doc.y;
@@ -198,7 +232,7 @@ doc.font('Helvetica').fontSize(10.5).fillColor('#334155').text(
 );
 doc.moveDown(2);
 doc.fillColor(DARK).font('Helvetica-Bold').fontSize(10.5).text('Contato:', M, doc.y, { continued: true });
-doc.font('Helvetica').fillColor('#334155').text('  contato@condohub.com.br  ·  (00) 00000-0000');
+doc.font('Helvetica').fillColor('#334155').text('  guilhermewerneckpereira11@hotmail.com  ·  (89) 9 9987-2430');
 
 // ============================================================
 // RODAPÉ (numeração) — pula a capa
