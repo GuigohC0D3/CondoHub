@@ -336,9 +336,11 @@ export async function checkin(assemblyId: string, user: AuthUser, apartmentId?: 
 export async function vote(assemblyId: string, itemId: string, input: VoteInput, user: AuthUser) {
   const item = await prisma.assemblyItem.findFirst({
     where: { id: itemId, assemblyId },
-    select: { id: true, status: true, options: { select: { id: true } } },
+    select: { id: true, status: true, assembly: { select: { status: true } }, options: { select: { id: true } } },
   });
   if (!item) throw AppError.notFound('Item não encontrado');
+  // Defesa: assembleia precisa estar em andamento (cobre cancelada/encerrada com item ainda aberto).
+  if (item.assembly.status !== 'OPEN') throw AppError.business('A assembleia não está em andamento');
   if (item.status !== 'OPEN') throw AppError.business('A votação deste item não está aberta');
 
   const hasOptions = item.options.length > 0;
@@ -351,26 +353,26 @@ export async function vote(assemblyId: string, itemId: string, input: VoteInput,
   const unit = await resolveVoterUnit(user);
   const choice = input.optionId ? 'OPTION' : input.choice!;
 
-  // Presença implícita: votar registra check-in da unidade.
-  await prisma.assemblyAttendance.upsert({
-    where: { assemblyId_apartmentId: { assemblyId, apartmentId: unit.apartmentId } },
-    update: {},
-    create: { assemblyId, apartmentId: unit.apartmentId, residentId: unit.residentId, weight: dec(unit.weight) },
+  // Presença implícita + voto de forma atômica (presença não fica sem voto e vice-versa).
+  return prisma.$transaction(async (tx) => {
+    await tx.assemblyAttendance.upsert({
+      where: { assemblyId_apartmentId: { assemblyId, apartmentId: unit.apartmentId } },
+      update: {},
+      create: { assemblyId, apartmentId: unit.apartmentId, residentId: unit.residentId, weight: dec(unit.weight) },
+    });
+    return tx.assemblyVote.upsert({
+      where: { itemId_apartmentId: { itemId, apartmentId: unit.apartmentId } },
+      update: { choice, optionId: input.optionId ?? null, residentId: unit.residentId },
+      create: {
+        itemId,
+        apartmentId: unit.apartmentId,
+        residentId: unit.residentId,
+        optionId: input.optionId ?? null,
+        choice,
+        weight: dec(unit.weight),
+      },
+    });
   });
-
-  const vote = await prisma.assemblyVote.upsert({
-    where: { itemId_apartmentId: { itemId, apartmentId: unit.apartmentId } },
-    update: { choice, optionId: input.optionId ?? null, residentId: unit.residentId },
-    create: {
-      itemId,
-      apartmentId: unit.apartmentId,
-      residentId: unit.residentId,
-      optionId: input.optionId ?? null,
-      choice,
-      weight: dec(unit.weight),
-    },
-  });
-  return vote;
 }
 
 // ---- Apuração ----
