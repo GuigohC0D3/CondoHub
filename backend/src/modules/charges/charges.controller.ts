@@ -31,6 +31,10 @@ export async function createBatch(req: Request, res: Response) {
   res.status(201).json(await service.createBatch(req.body, user(req)));
 }
 
+export async function simulatePayment(req: Request, res: Response) {
+  res.json({ charge: await service.simulatePayment(req.params.id, user(req)) });
+}
+
 export async function webhook(req: Request, res: Response) {
   const headers = req.headers as Record<string, string | undefined>;
   res.json(await service.handleWebhook(headers, req.body));

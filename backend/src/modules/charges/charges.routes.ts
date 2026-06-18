@@ -34,3 +34,5 @@ chargesRouter.post('/', validate({ body: createChargeSchema }), asyncHandler(c.c
 chargesRouter.post('/batch', validate({ body: createBatchSchema }), asyncHandler(c.createBatch));
 chargesRouter.get('/:id', validate({ params: idParamSchema }), asyncHandler(c.getCharge));
 chargesRouter.post('/:id/cancel', validate({ params: idParamSchema }), asyncHandler(c.cancelCharge));
+// DEMO/MVP: confirma pagamento sem gateway real (somente no modo stub).
+chargesRouter.post('/:id/simulate-payment', validate({ params: idParamSchema }), asyncHandler(c.simulatePayment));

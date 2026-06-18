@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Prisma } from '@prisma/client';
-import { handleWebhook } from '@/modules/charges/charges.service';
+import { handleWebhook, simulatePayment } from '@/modules/charges/charges.service';
 import { asTenant, createCondo, prisma, resetDb } from './helpers';
 
 /**
@@ -74,5 +74,14 @@ describe('Cobrança → webhook → baixa', () => {
 
   it('ignora corpo inválido', async () => {
     expect(await handleWebhook({}, { foo: 'bar' })).toEqual({ received: true, ignored: true });
+  });
+
+  it('simula pagamento (demo/stub) marcando PENDING → PAID', async () => {
+    const sindico = await asTenant(condo, () =>
+      prisma.user.create({ data: { name: 'S', email: 's@charge.test', passwordHash: 'x', role: 'SINDICO' } as Prisma.UserUncheckedCreateInput }),
+    );
+    const charge = await makeCharge('stub_sim_1');
+    const result = await asTenant(condo, () => simulatePayment(charge.id, { id: sindico.id, role: 'SINDICO', condominiumId: condo }));
+    expect(result.status).toBe('PAID');
   });
 });

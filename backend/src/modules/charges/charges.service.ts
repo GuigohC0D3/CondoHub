@@ -173,6 +173,32 @@ export async function cancelCharge(id: string, user: AuthUser) {
   return updated;
 }
 
+/**
+ * DEMO/MVP: confirma o pagamento de uma cobrança sem gateway real, reaproveitando
+ * o caminho do webhook (idempotente). Disponível apenas com o gateway stub —
+ * em produção com Asaas a baixa só ocorre pelo webhook real.
+ */
+export async function simulatePayment(id: string, user: AuthUser) {
+  if (paymentGateway.provider !== 'stub') {
+    throw AppError.business('Simulação disponível apenas no modo de demonstração (gateway stub)');
+  }
+  const charge = await prisma.charge.findFirst({
+    where: { id },
+    select: { id: true, gatewayChargeId: true, amount: true, status: true },
+  });
+  if (!charge) throw AppError.notFound('Cobrança não encontrada');
+  if (!charge.gatewayChargeId) throw AppError.business('Cobrança sem identificador de gateway');
+  if (charge.status === 'PAID') throw AppError.business('Cobrança já está paga');
+
+  await handleWebhook({}, {
+    gatewayChargeId: charge.gatewayChargeId,
+    type: 'PAYMENT_RECEIVED',
+    paidAmount: num(charge.amount),
+  });
+  await audit({ userId: user.id, action: 'charge.simulatePayment', entity: 'Charge', entityId: id });
+  return getCharge(id);
+}
+
 // ---- Lote mensal ----
 
 export async function createBatch(input: CreateBatchInput, user: AuthUser) {
