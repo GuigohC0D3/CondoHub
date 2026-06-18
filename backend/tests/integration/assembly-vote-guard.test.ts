@@ -29,6 +29,9 @@ describe('Guarda de status no voto da assembleia', () => {
       const u = await prisma.user.create({
         data: { name: 'Votante', email: 'v@vote.test', passwordHash: 'x', role: 'MORADOR' } as Prisma.UserUncheckedCreateInput,
       });
+      const s = await prisma.user.create({
+        data: { name: 'Síndico', email: 's@vote.test', passwordHash: 'x', role: 'SINDICO' } as Prisma.UserUncheckedCreateInput,
+      });
       const apt = await prisma.apartment.create({ data: { number: '101', idealFraction: new Prisma.Decimal(1) } as Prisma.ApartmentUncheckedCreateInput });
       await prisma.resident.create({
         data: { apartmentId: apt.id, userId: u.id, fullName: 'Votante', cpf: '39053344705' } as Prisma.ResidentUncheckedCreateInput,
@@ -43,8 +46,8 @@ describe('Guarda de status no voto da assembleia', () => {
       assemblyId = assembly.id;
       itemId = assembly.items[0].id;
       voter = { id: u.id, role: 'MORADOR', condominiumId: condo };
+      sindico = { id: s.id, role: 'SINDICO', condominiumId: condo };
     });
-    sindico = { id: 'sindico', role: 'SINDICO', condominiumId: condo };
   });
 
   it('aceita voto com a assembleia em andamento', async () => {
