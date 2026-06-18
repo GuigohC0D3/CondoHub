@@ -57,6 +57,25 @@ services:
     depends_on:
       - api
 
+  # Backup automático do Postgres (pg_dump em loop, com retenção).
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: condohub
+      PGPASSWORD: condohub
+      PGDATABASE: condohub
+      BACKUP_INTERVAL: "86400"      # 24h entre backups
+      BACKUP_RETENTION_DAYS: "7"
+    volumes:
+      - ./backups:/backups
+      - ./scripts/db-backup.sh:/usr/local/bin/db-backup.sh:ro
+    entrypoint: ["sh", "-c", "while true; do /usr/local/bin/db-backup.sh || echo '[backup] FALHOU'; sleep \"$$BACKUP_INTERVAL\"; done"]
+
 volumes:
   pgdata:
   redisdata:

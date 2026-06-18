@@ -1,0 +1,3 @@
+# Mantém o diretório no repositório, mas ignora os dumps gerados.
+*
+!.gitignore
