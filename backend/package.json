@@ -14,7 +14,6 @@
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "asaas:smoke": "tsx scripts/asaas-sandbox-smoke.ts",
-    "pitch:pdf": "tsx scripts/generate-pitch-pdf.ts",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
