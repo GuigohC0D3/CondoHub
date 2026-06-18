@@ -17,6 +17,7 @@ const appChildren: RouteRecordRaw[] = [
   { path: 'portaria', name: 'gate', component: () => import('@/features/portaria/GateView.vue'), meta: { roles: ['SINDICO', 'PORTEIRO'] as Role[] } },
   { path: 'visitantes', name: 'visitors', component: () => import('@/features/visitors/VisitorsView.vue'), meta: { roles: ['MORADOR'] as Role[] } },
   { path: 'encomendas', name: 'packages', component: () => import('@/features/packages/PackagesView.vue'), meta: { roles: ['MORADOR', 'PORTEIRO'] as Role[] } },
+  { path: 'cobrancas', name: 'charges', component: () => import('@/features/charges/ChargesView.vue'), meta: { roles: ['SINDICO', 'MORADOR'] as Role[] } },
   { path: 'admin', name: 'admin', component: () => import('@/features/admin/AdminView.vue'), meta: { roles: ['SUPER_ADMIN'] as Role[] } },
   { path: 'perfil', name: 'profile', component: () => import('@/features/profile/ProfileView.vue') },
 ];
