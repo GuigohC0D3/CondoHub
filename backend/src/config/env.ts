@@ -45,6 +45,10 @@ const schema = z.object({
   EMAIL_FROM: z.string().default('CondoHub <onboarding@resend.dev>'),
   // URL pública do frontend (para montar links em e-mails, ex. convite).
   WEB_URL: z.string().url().default('http://localhost:5173'),
+
+  // Observabilidade (Sentry). Sem DSN → desabilitado (apenas logs estruturados).
+  SENTRY_DSN: z.string().url().optional().or(z.literal('')),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
 });
 
 const parsed = schema.safeParse(process.env);

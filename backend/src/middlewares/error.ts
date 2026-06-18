@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { NextFunction, Request, Response } from 'express';
 import { AppError } from '@/utils/errors';
-import { logger } from '@/lib/logger';
+import { reportError } from '@/lib/observability';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       error: { code: err.code, message: err.message, details: err.details },
@@ -22,7 +22,14 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     }
   }
 
-  logger.error({ err }, 'Unhandled error');
+  // Erro não previsto (5xx): reporta ao Sentry com contexto e registra no log.
+  reportError(err, {
+    requestId: (req as Request & { id?: string }).id,
+    method: req.method,
+    path: req.originalUrl,
+    userId: req.user?.id,
+    condominiumId: req.user?.condominiumId,
+  });
   return res.status(500).json({ error: { code: 'INTERNAL', message: 'Erro interno' } });
 }
 
