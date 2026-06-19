@@ -10,7 +10,12 @@ import Modal from '@/components/ui/Modal.vue';
 import Input from '@/components/ui/Input.vue';
 import Label from '@/components/ui/Label.vue';
 import { toast, apiError } from '@/lib/toast';
+import { useAuthStore } from '@/stores/auth';
 import { useVisitors, useCreateVisitor, type Visitor, type VisitorStatus } from './api';
+
+const auth = useAuthStore();
+// Síndico também pode pré-cadastrar (gera QR) se tiver vínculo de morador; o backend valida.
+const canCreate = computed(() => auth.role === 'MORADOR' || auth.role === 'SINDICO');
 
 const page = ref(1);
 const { data, isLoading } = useVisitors(page);
@@ -58,8 +63,8 @@ async function submit() {
 
 <template>
   <div>
-    <PageHeader title="Visitantes" subtitle="Pré-cadastre visitantes e acompanhe o histórico">
-      <template #actions><Button @click="showCreate = true"><Plus class="h-4 w-4" /> Novo visitante</Button></template>
+    <PageHeader title="Visitantes" :subtitle="canCreate ? 'Pré-cadastre visitantes e acompanhe o histórico' : 'Acompanhe os visitantes do condomínio'">
+      <template v-if="canCreate" #actions><Button @click="showCreate = true"><Plus class="h-4 w-4" /> Novo visitante</Button></template>
     </PageHeader>
 
     <DataTable :columns="columns" :rows="rows" :loading="isLoading" row-key="id" empty-message="Nenhum visitante.">
@@ -87,6 +92,7 @@ async function submit() {
           </div>
         </div>
         <div class="space-y-1 text-sm">
+          <div class="flex justify-between"><span class="text-muted-foreground">Visita a</span><span>{{ selected.resident.fullName }}</span></div>
           <div v-if="fmt(selected.expectedAt)" class="flex justify-between"><span class="text-muted-foreground">Esperado para</span><span>{{ fmt(selected.expectedAt) }}</span></div>
           <div v-if="fmt(selected.checkedInAt)" class="flex justify-between"><span class="text-muted-foreground">Entrada</span><span>{{ fmt(selected.checkedInAt) }}</span></div>
           <div v-if="fmt(selected.checkedOutAt)" class="flex justify-between"><span class="text-muted-foreground">Saída</span><span>{{ fmt(selected.checkedOutAt) }}</span></div>

@@ -28,7 +28,7 @@ export const NAV: NavItem[] = [
   { to: '/cobrancas', label: 'Cobranças', icon: Receipt, roles: ['SINDICO', 'MORADOR'] },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet, roles: ['SINDICO'] },
   { to: '/portaria', label: 'Portaria', icon: DoorOpen, roles: ['SINDICO', 'PORTEIRO'] },
-  { to: '/visitantes', label: 'Visitantes', icon: UserPlus, roles: ['MORADOR'] },
+  { to: '/visitantes', label: 'Visitantes', icon: UserPlus, roles: ['SINDICO', 'MORADOR'] },
   { to: '/encomendas', label: 'Encomendas', icon: Package, roles: ['MORADOR', 'PORTEIRO'] },
   { to: '/admin', label: 'Plataforma', icon: ShieldCheck, roles: ['SUPER_ADMIN'] },
 ];

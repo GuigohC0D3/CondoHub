@@ -17,10 +17,10 @@ export const visitorsRouter = Router();
 
 visitorsRouter.use(authenticate);
 
-// Pré-cadastro pelo morador (gera QR).
+// Pré-cadastro pelo morador (gera QR). Síndico também pode, se tiver vínculo de morador.
 visitorsRouter.post(
   '/',
-  requireRole('MORADOR'),
+  requireRole('MORADOR', 'SINDICO'),
   validate({ body: createVisitorSchema }),
   asyncHandler(controller.create),
 );
