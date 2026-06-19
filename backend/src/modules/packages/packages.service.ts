@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
+import { putObject, storageEnabled } from '@/lib/storage';
 import { logger } from '@/lib/logger';
 import { AppError } from '@/utils/errors';
 import { paginate, toSkipTake } from '@/utils/pagination';
@@ -34,12 +35,38 @@ async function notifyApartment(apartmentId: string): Promise<number> {
   return userIds.length;
 }
 
+/**
+ * Persiste a foto da encomenda. Com S3 configurado → faz upload e guarda a URL;
+ * caso contrário (dev) → guarda o próprio data URL (já vem reduzido do cliente).
+ */
+async function persistPhoto(condominiumId: string, dataUrl: string): Promise<string> {
+  const m = dataUrl.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/);
+  if (!m) return dataUrl;
+  if (!storageEnabled()) return dataUrl;
+  try {
+    const [, mime, ext, b64] = m;
+    return await putObject({
+      condominiumId,
+      scope: 'packages',
+      fileName: `package.${ext.replace('jpeg', 'jpg')}`,
+      contentType: mime,
+      body: Buffer.from(b64, 'base64'),
+    });
+  } catch (err) {
+    logger.warn({ err }, 'Falha no upload da foto da encomenda — guardando data URL');
+    return dataUrl;
+  }
+}
+
 export async function create(input: CreatePackageInput, user: AuthUser) {
   const apt = await prisma.apartment.findFirst({ where: { id: input.apartmentId }, select: { id: true } });
   if (!apt) throw AppError.business('Apartamento inexistente neste condomínio');
 
+  const { photo, ...data } = input;
+  const photoUrl = photo ? await persistPhoto(user.condominiumId!, photo) : input.photoUrl;
+
   const pkg = await prisma.package.create({
-    data: { ...input, status: 'RECEIVED', receivedBy: user.id } as Prisma.PackageUncheckedCreateInput,
+    data: { ...data, photoUrl, status: 'RECEIVED', receivedBy: user.id } as Prisma.PackageUncheckedCreateInput,
     include,
   });
 

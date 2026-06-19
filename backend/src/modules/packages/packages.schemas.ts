@@ -5,6 +5,7 @@ export const createPackageSchema = z.object({
   description: z.string().max(300).optional(),
   carrier: z.string().max(80).optional(),
   photoUrl: z.string().url().optional(),
+  photo: z.string().optional(), // data URL capturado na portaria
 });
 
 export const listPackagesQuerySchema = z.object({

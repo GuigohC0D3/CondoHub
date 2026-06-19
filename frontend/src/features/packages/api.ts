@@ -10,6 +10,7 @@ export interface Package {
   description: string | null;
   carrier: string | null;
   status: PackageStatus;
+  photoUrl: string | null;
   receivedAt: string;
   pickedUpAt: string | null;
   pickedUpBy: string | null;
@@ -25,7 +26,7 @@ export const usePackages = (page: Ref<number>) =>
 export const useCreatePackage = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { apartmentId: string; description?: string; carrier?: string }) => (await api.post('/packages', body)).data,
+    mutationFn: async (body: { apartmentId: string; description?: string; carrier?: string; photo?: string }) => (await api.post('/packages', body)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
   });
 };

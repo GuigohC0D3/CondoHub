@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { QrCode, LogIn, LogOut, PackagePlus, Check, Camera, X, Ban } from 'lucide-vue-next';
+import { QrCode, LogIn, LogOut, PackagePlus, Check, Camera, X, Ban, PackageIcon } from 'lucide-vue-next';
 import PageHeader from '@/components/common/PageHeader.vue';
 import DataTable, { type Column } from '@/components/common/DataTable.vue';
 import QrScanner from '@/components/common/QrScanner.vue';
@@ -102,20 +102,25 @@ const { data: packages, isLoading: lp } = usePackages(pPage);
 const PSTATUS: Record<PackageStatus, { v: 'warning' | 'secondary' | 'success'; t: string }> = {
   RECEIVED: { v: 'warning', t: 'Recebida' }, NOTIFIED: { v: 'warning', t: 'Notificada' }, PICKED_UP: { v: 'success', t: 'Retirada' },
 };
-const pCols: Column[] = [{ key: 'apartment', label: 'Apto' }, { key: 'description', label: 'Descrição' }, { key: 'status', label: 'Status' }];
+const pCols: Column[] = [{ key: 'photo', label: '', class: 'w-12' }, { key: 'apartment', label: 'Apto' }, { key: 'description', label: 'Descrição' }, { key: 'status', label: 'Status' }];
 const pRows = computed(() => (packages.value?.data ?? []) as unknown as Record<string, unknown>[]);
+const photoView = ref<string | null>(null);
+const photoOpen = computed({ get: () => !!photoView.value, set: (o: boolean) => { if (!o) photoView.value = null; } });
 
 const { data: apts } = useApartments();
 const aptOptions = computed(() => (apts.value?.data ?? []).map((a) => ({ value: a.id, label: `${a.block ? a.block.name + ' · ' : ''}${a.number}` })));
 
 const showPkg = ref(false);
 const pkgForm = reactive({ apartmentId: '', description: '', carrier: '' });
+const pkgPhoto = ref<string | null>(null);
 const createPkg = useCreatePackage();
+function openPkg() { Object.assign(pkgForm, { apartmentId: '', description: '', carrier: '' }); pkgPhoto.value = null; showPkg.value = true; }
 async function submitPkg() {
   try {
-    await createPkg.mutateAsync({ apartmentId: pkgForm.apartmentId, description: pkgForm.description || undefined, carrier: pkgForm.carrier || undefined });
+    await createPkg.mutateAsync({ apartmentId: pkgForm.apartmentId, description: pkgForm.description || undefined, carrier: pkgForm.carrier || undefined, photo: pkgPhoto.value || undefined });
     toast.success('Encomenda registrada'); showPkg.value = false;
     Object.assign(pkgForm, { apartmentId: '', description: '', carrier: '' });
+    pkgPhoto.value = null;
   } catch (e) { toast.error(apiError(e)); }
 }
 
@@ -183,9 +188,15 @@ async function doPickup(id: string) {
       <Card class="p-4">
         <div class="mb-3 flex items-center justify-between">
           <h2 class="font-medium">Encomendas</h2>
-          <Button size="sm" @click="showPkg = true"><PackagePlus class="h-4 w-4" /> Registrar</Button>
+          <Button size="sm" @click="openPkg"><PackagePlus class="h-4 w-4" /> Registrar</Button>
         </div>
         <DataTable :columns="pCols" :rows="pRows" :loading="lp" row-key="id" empty-message="Sem encomendas.">
+          <template #cell-photo="{ row }">
+            <button v-if="(row as unknown as Package).photoUrl" type="button" @click="photoView = (row as unknown as Package).photoUrl">
+              <img :src="(row as unknown as Package).photoUrl!" alt="" class="h-9 w-9 rounded-md object-cover" />
+            </button>
+            <span v-else class="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground"><PackageIcon class="h-4 w-4" /></span>
+          </template>
           <template #cell-apartment="{ row }">{{ (row as unknown as Package).apartment.number }}</template>
           <template #cell-description="{ value }">{{ value ?? 'Encomenda' }}</template>
           <template #cell-status="{ value }"><Badge :variant="PSTATUS[value as PackageStatus].v">{{ PSTATUS[value as PackageStatus].t }}</Badge></template>
@@ -201,6 +212,14 @@ async function doPickup(id: string) {
         <div><Label>Apartamento</Label><Select v-model="pkgForm.apartmentId" :options="aptOptions" placeholder="Selecione" /></div>
         <div><Label>Descrição</Label><Input v-model="pkgForm.description" placeholder="Caixa, envelope..." /></div>
         <div><Label>Transportadora</Label><Input v-model="pkgForm.carrier" /></div>
+        <div>
+          <Label>Foto da encomenda (opcional)</Label>
+          <div v-if="pkgPhoto" class="mt-1 flex flex-col items-center gap-2">
+            <img :src="pkgPhoto" alt="Foto da encomenda" class="h-48 w-48 rounded-md border object-cover" />
+            <Button variant="outline" size="sm" @click="pkgPhoto = null"><X class="h-4 w-4" /> Refazer</Button>
+          </div>
+          <CameraCapture v-else class="mt-1" @capture="(d) => (pkgPhoto = d)" @error="(m) => toast.error(m)" />
+        </div>
       </div>
       <template #footer>
         <Button variant="outline" @click="showPkg = false">Cancelar</Button>
@@ -222,6 +241,11 @@ async function doPickup(id: string) {
           <LogIn class="h-4 w-4" /> Registrar entrada
         </Button>
       </template>
+    </Modal>
+
+    <Modal v-model:open="photoOpen" title="Foto da encomenda">
+      <img v-if="photoView" :src="photoView" alt="Foto da encomenda" class="max-h-[70vh] w-full rounded-md border object-contain" />
+      <template #footer><Button @click="photoView = null">Fechar</Button></template>
     </Modal>
   </div>
 </template>
